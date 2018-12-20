@@ -1,36 +1,8 @@
-// #include <avr/interrupt.h>
 #include <avr/io.h>
-// #include <util/atomic.h>
 #include <util/delay.h>
-// #include <avr/pgmspace.h>
 // #include <avr/interrupt.h>
 // #include <avr/eeprom.h>
 // #include <avr/sleep.h>
-// #include <string.h>
-
-// /**
-//  * Fuses for ATtiny13A
-//  */
-// FUSES = {
-//   // FUSE_CKSEL0      Select Clock Source
-//   // FUSE_CKSEL1      Select Clock Source
-//   // FUSE_SUT0        Select start-up time
-//   // FUSE_SUT1        Select start-up time
-//   // FUSE_CKDIV8      Start up with system clock divided by 8
-//   // FUSE_WDTON       Watch dog timer always on
-//   // FUSE_EESAVE      Keep EEprom contents during chip erase
-//   // FUSE_SPIEN       SPI programming enable
-//   // LFUSE_DEFAULT    (FUSE_SPIEN & FUSE_CKDIV8 & FUSE_SUT0 & FUSE_CKSEL0)
-//   .low = LFUSE_DEFAULT,
-//
-//   // FUSE_RSTDISBL    Disable external reset
-//   // FUSE_BODLEVEL0   Enable BOD and select level
-//   // FUSE_BODLEVEL1   Enable BOD and select level
-//   // FUSE_DWEN        DebugWire Enable
-//   // FUSE_SELFPRGEN   Self Programming Enable
-//   // HFUSE_DEFAULT    (0xFF)
-//   .high = HFUSE_DEFAULT
-// };
 
 #define PWM_PIN PB1
 #define VOLTAGE_PIN PB2
@@ -38,6 +10,7 @@
 #define RAMP_TIME 3
 #define RAMP_SIZE sizeof(ramp_values)
 #define RAMP_VALUES 5,5,5,5,5,6,6,6,6,7,7,8,8,9,10,11,12,13,14,15,17,18,20,22,23,25,28,30,32,35,38,41,44,47,51,55,59,63,67,71,76,81,86,92,97,103,109,116,122,129,136,144,151,159,167,176,185,194,203,213,223,233,244,255
+#define TURBO_PWM 255
 
 #define RAMPING_STOPPED 0
 #define RAMPING_UP 1
@@ -53,23 +26,33 @@
 */
 
 /**
- * TODO
+ * States of the state machine.
+ */
+enum State {
+  kRamping,  // Ramping up and down
+  kFrozen,   // Frozen ramping level
+  kTurbo,    // Full power
+  kConfig,   // Config menu
+};
+
+/**
+ * TODO Doc and split into options and runtime state
  */
 struct Options {
   uint8_t fixed_modes : 1;
   uint8_t mode_memory : 1;
   uint8_t freeze_on_high : 1;
   uint8_t start_high : 1;
-  uint8_t ramping_stopped : 1;
   uint8_t ramping_up : 1;
 };
 
 const uint8_t __flash ramp_values[] = { RAMP_VALUES };
 
-uint8_t cold_boot_detect[CBD_BYTES] __attribute__((section (".noinit")));
-struct Options ramping __attribute__((section (".noinit")));
-uint8_t output __attribute__((section (".noinit")));
-uint8_t fast_presses __attribute__((section (".noinit")));
+uint8_t cold_boot_detect[CBD_BYTES] __attribute__((section(".noinit")));
+struct Options options __attribute__((section(".noinit")));
+enum State state __attribute__((section(".noinit")));
+uint8_t output __attribute__((section(".noinit")));
+uint8_t fast_presses __attribute__((section(".noinit")));
 
 /**
  * Busy wait delay with ms resolution. This function allows to choose the duration during runtime.
@@ -127,10 +110,10 @@ void blink(uint8_t count, uint16_t speed) {
 int main(void) {
   uint8_t coldboot = 0;
 
-  ramping.fixed_modes = 0;
-  ramping.mode_memory = 0;
-  ramping.freeze_on_high = 0;
-  ramping.start_high = 0;
+  options.fixed_modes = 0;
+  options.mode_memory = 0;
+  options.freeze_on_high = 0;
+  options.start_high = 0;
 
   // Phase correct PWM, system clock without prescaler
   TCCR0A = (1 << COM0B1) | (1 << WGM00);
@@ -147,46 +130,84 @@ int main(void) {
     cold_boot_detect[i] = CBD_PATTERN;
   }
 
-  if (coldboot) {
+  if (coldboot) {  // Initialize state after the flashlight was switched off for some time
+    state = kRamping;
     fast_presses = 0;
-    ramping.ramping_stopped = 0;
-    ramping.ramping_up = 1;
+    options.ramping_up = 1;
     output = 1;
-  } else {
+  } else {  // User has tapped the power button
     ++fast_presses;
 
-    ramping.ramping_stopped = !ramping.ramping_stopped;
+    // Input handling
+    switch (state) {
+      case kRamping:
+        state = kFrozen;
+        break;
+
+      case kFrozen:
+        state = kRamping;
+        break;
+
+      case kTurbo:
+        state = kRamping;
+        break;
+    }
+
+    if (fast_presses == 2) {
+      state = kTurbo;
+    }
   }
 
   set_level(output);
 
-  delay_ms(500);
-  fast_presses = 0;
+  while (1) {
+    switch (state) {
+      case kRamping:
+        if (output == RAMP_SIZE) {
+          delay_ms(1000);
+        }
 
-  while(1) {
-    if (!ramping.ramping_stopped) {
-      set_level(output);
+        options.ramping_up =
+            (options.ramping_up && output < RAMP_SIZE) ||
+            (!options.ramping_up && output == 1);
 
-      if (output == RAMP_SIZE) {
-        delay_ms(1000);
-      }
+        if (output == RAMP_SIZE && options.freeze_on_high) {
+          state = kFrozen;
+          break;
+        }
 
-      if ((!ramping.ramping_up && output == 1) || (ramping.ramping_up && output == RAMP_SIZE) ) {
-        ramping.ramping_up = !ramping.ramping_up;
-      }
+        if (options.ramping_up) {
+          ++output;
+        } else {
+          --output;
+        }
 
-      /* if (output == RAMP_SIZE && stop_at_the_top()) { */
-      /*   ramping = RAMPING_STOPPED; */
-      /* } */
+        set_level(output);
+        delay_ms(RAMP_TIME*1000/RAMP_SIZE);
+        break;
 
-      if (ramping.ramping_up) {
-        ++output;
-      } else {
-        --output;
-      }
+      case kFrozen:
+        break;
 
-      /* set_level(output); */
-      delay_ms(RAMP_TIME*1000/RAMP_SIZE);
+      case kTurbo:
+        // set_pwm(TURBO_PWM);
+        blink(20, 500/20);
+        break;
+
+      case kConfig:
+        // set_level(0);
+        // _delay_ms(1000);
+        // fast_presses = 0;
+
+        // toggle_options((options ^ 0b00000001), 1);
+        // toggle_options((options ^ 0b00000010), 2);
+        // toggle_options((options ^ 0b00000100), 3);
+        // toggle_options(DEFAULTS, 4);
+        break;
     }
+
+    // TODO Low voltage protection
   }
+
+  // TODO Use ISR(TIMER0_OVF_vect) to reset fast_presses (use fast PWM)
 }
