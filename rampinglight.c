@@ -164,7 +164,7 @@ void restore_state(void) {
  * @param flashes  Number of flashes
  */
 void toggle_option(uint8_t new_opts, uint8_t flashes) {
-  blink(flashes, 250);
+  blink(flashes, 200);
   uint8_t old_options = options.raw;
   options.raw = new_opts;
   save_options();
