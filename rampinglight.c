@@ -12,7 +12,10 @@
 #define RAMP_VALUES 5,5,5,5,5,6,6,6,6,7,7,8,8,9,10,11,12,13,14,15,17,18,20,22,23,25,28,30,32,35,38,41,44,47,51,55,59,63,67,71,76,81,86,92,97,103,109,116,122,129,136,144,151,159,167,176,185,194,203,213,223,233,244,255
 #define TURBO_PWM 255
 
-#define CBD_BYTES 3
+#define FIXED_SIZE sizeof(fixed_values)
+#define FIXED_VALUES 5,18,86,255
+
+#define CBD_BYTES 4
 #define CBD_PATTERN 0xAA
 
 /*
@@ -25,9 +28,11 @@
  * States of the state machine.
  */
 enum State {
+  kDefault,    // Special decision state
   kRamping,    // Ramping up and down
   kFrozen,     // Frozen ramping level
   kTurbo,      // Full power
+  kFixed,      // Fixed mode
   kBattcheck,  // Battery level
   kConfig,     // Config menu
 };
@@ -36,7 +41,7 @@ enum State {
  * TODO Doc and split into options and runtime state
  */
 struct Options {
-  uint8_t fixed_modes : 1;      // TODO
+  uint8_t fixed_mode : 1;
   uint8_t mode_memory : 1;      // TODO
   uint8_t freeze_on_high : 1;
   uint8_t start_high : 1;
@@ -44,6 +49,7 @@ struct Options {
 };
 
 const uint8_t __flash ramp_values[] = { RAMP_VALUES };
+const uint8_t __flash fixed_values[] = { FIXED_VALUES };
 
 uint8_t microticks = 0;  // TODO Put into register?
 uint8_t ticks = 0;
@@ -55,7 +61,8 @@ uint8_t output __attribute__((section(".noinit")));
 uint8_t fast_presses __attribute__((section(".noinit")));
 
 /**
- * Busy wait delay with ms resolution. This function allows to choose the duration during runtime.
+ * Busy wait delay with ms resolution. This function allows to choose the
+ * duration during runtime.
  *
  * @param duration Wait duration in ms.
  */
@@ -78,13 +85,17 @@ void set_pwm(uint8_t pwm) {
  * Set output to a level as defined in the ramp table. The table is indexed
  * starting from 1 so that level 0 can be used to disable the output.
  *
- * @param level Index in ramp_values, starting at 1.
+ * @param level Index in ramp_values or fixed_values depending on fixed_mode
  */
 void set_level(uint8_t level) {
   if (level == 0) {
     set_pwm(0);
   } else {
-    set_pwm(ramp_values[level - 1]);
+    if (options.fixed_mode) {
+      set_pwm(fixed_values[level - 1]);
+    } else {
+      set_pwm(ramp_values[level - 1]);
+    }
   }
 }
 
@@ -127,7 +138,7 @@ int main(void) {
   uint8_t coldboot = 0;
 
   // TODO Restore states from EEPROM
-  options.fixed_modes = 0;
+  options.fixed_mode = 0;
   options.mode_memory = 0;
   options.freeze_on_high = 0;
   options.start_high = 0;
@@ -154,10 +165,15 @@ int main(void) {
   }
 
   if (coldboot) {  // Initialize state after the flashlight was switched off for some time
-    state = kRamping;
+    state = kDefault;
     fast_presses = 0;
     options.ramping_up = 1;
-    output = options.start_high ? RAMP_SIZE : 1;
+
+    if (options.start_high) {
+      output = options.fixed_mode ? FIXED_SIZE : RAMP_SIZE;
+    } else {
+      output = 1;
+    }
   } else {  // User has tapped the power button
     ++fast_presses;
 
@@ -167,29 +183,47 @@ int main(void) {
     }
 
     // Input handling
-    switch (fast_presses) {
-      case 2:
-        state = kTurbo;
-        break;
+    if (options.fixed_mode) {
+      switch (fast_presses) {
+        case FIXED_SIZE + 1:
+          state = kBattcheck;
+          break;
 
-      case 3:
-        state = kBattcheck;
-        break;
+        case 10:
+          state = kConfig;
+          break;
 
-      case 10:
-        state = kConfig;
-        break;
+        default:
+          output = (output % FIXED_SIZE) + 1;
+          state = kFixed;
+          break;
+      }
+    } else {
+      switch (fast_presses) {
+        case 2:
+          state = kTurbo;
+          break;
 
-      default:
-        switch (state) {
-          case kRamping:
-            state = kFrozen;
-            break;
+        case 3:
+          state = kBattcheck;
+          break;
 
-          default:
-            state = kRamping;
-            break;
-        }
+        case 10:
+          state = kConfig;
+          break;
+
+        default:
+          switch (state) {
+            case kRamping:
+              state = kFrozen;
+              break;
+
+            default:
+              state = kRamping;
+              break;
+          }
+          break;
+      }
     }
   }
 
@@ -197,6 +231,12 @@ int main(void) {
 
   while (1) {
     switch (state) {
+      case kDefault:
+        // This is a special state that does nothing but deciding which is the
+        // correct state for the current mode (ramping vs fixed)
+        state = options.fixed_mode ? kFixed : kRamping;
+        continue;  // Skip main loop cycle and continue with correct mode
+
       case kRamping:
         options.ramping_up =
             (options.ramping_up && output < RAMP_SIZE) ||
@@ -227,18 +267,22 @@ int main(void) {
         blink(20, 500/20);
         break;
 
+      case kFixed:
+        break;
+
       case kBattcheck:
         // TODO
         blink(20, 1000/20);
         break;
 
       case kConfig:
-        // TODO
         set_level(0);
         _delay_ms(1000);
-        fast_presses = 0;
+
+        state = kDefault;
+
+        // TODO
         blink(20, 1500/20);
-        state = kRamping;  // TODO Add kDefault state?
 
         // toggle_options((options ^ 0b00000001), 1);
         // toggle_options((options ^ 0b00000010), 2);
@@ -251,6 +295,5 @@ int main(void) {
     //   // TODO Low voltage protection
     //   blink(5, 20);
     // }
-
   }
 }
