@@ -18,7 +18,7 @@
 #include <avr/io.h>
 #include <util/delay.h>
 #include <avr/interrupt.h>
-// #include <avr/eeprom.h>
+#include <avr/eeprom.h>
 // #include <avr/sleep.h>
 
 #define PWM_PIN PB1
@@ -34,6 +34,9 @@
 
 #define CBD_BYTES 4
 #define CBD_PATTERN 0xAA
+
+#define EEPROM_SIZE 64
+#define EEPROM_OPTIONS (EEPROM_SIZE-1)
 
 /*
 #define ADC_CHANNEL 0x01    // MUX 01 corresponds with PB2
@@ -64,7 +67,6 @@ typedef union {
     unsigned mode_memory : 1; // TODO
     unsigned freeze_on_high : 1;
     unsigned start_high : 1;
-    unsigned ramping_up : 1;  // TODO Remove from Options
   };
 } Options;
 
@@ -79,6 +81,7 @@ Options options __attribute__((section(".noinit")));
 enum State state __attribute__((section(".noinit")));
 uint8_t output __attribute__((section(".noinit")));
 uint8_t fast_presses __attribute__((section(".noinit")));
+uint8_t ramping_up __attribute__((section(".noinit")));
 
 /**
  * Busy wait delay with ms resolution. This function allows to choose the
@@ -138,6 +141,23 @@ void blink(uint8_t count, uint16_t speed) {
 }
 
 /**
+ * Write current options to EEPROM.
+ */
+void save_options(void) {
+  // Not necessary to use eeprom_update_byte() because options will usually be
+  // written only if they have changed.
+  // Store inverted so that a read from uninitialized EEPROM results in 0.
+  eeprom_write_byte((uint8_t *)EEPROM_OPTIONS, ~options.raw);
+}
+
+/**
+ * Restore state from EEPROM.
+ */
+void restore_state(void) {
+  options.raw = ~eeprom_read_byte((uint8_t *)EEPROM_OPTIONS);
+}
+
+/**
  * User interface to toggle an option.
  *
  * @param new_opts New options
@@ -147,10 +167,10 @@ void toggle_option(uint8_t new_opts, uint8_t flashes) {
   blink(flashes, 250);
   uint8_t old_options = options.raw;
   options.raw = new_opts;
-  /* save_state(); */
+  save_options();
   blink(32, 500/32);
   options.raw = old_options;
-  /* save_state(); */
+  save_options();
   _delay_ms(1000);
 }
 
@@ -174,11 +194,7 @@ ISR(TIM0_OVF_vect) {
 int main(void) {
   uint8_t coldboot = 0;
 
-  // TODO Restore states from EEPROM
-  options.fixed_mode = 0;
-  options.mode_memory = 0;
-  options.freeze_on_high = 0;
-  options.start_high = 0;
+  restore_state();
 
   // Phase correct PWM, system clock without prescaler
   // Frequency will be F_CPU/510
@@ -204,7 +220,7 @@ int main(void) {
   if (coldboot) {  // Initialize state after the flashlight was switched off for some time
     state = kDefault;
     fast_presses = 0;
-    options.ramping_up = 1;
+    ramping_up = 1;
 
     if (options.start_high) {
       output = options.fixed_mode ? FIXED_SIZE : RAMP_SIZE;
@@ -275,11 +291,11 @@ int main(void) {
         continue;  // Skip main loop cycle and continue with correct mode
 
       case kRamping:
-        options.ramping_up =
-            (options.ramping_up && output < RAMP_SIZE) ||
-            (!options.ramping_up && output == 1);
+        ramping_up =
+            (ramping_up && output < RAMP_SIZE) ||
+            (!ramping_up && output == 1);
 
-        output += options.ramping_up ? 1 : -1;
+        output += ramping_up ? 1 : -1;
         set_level(output);
 
         if (options.freeze_on_high && output == RAMP_SIZE) {
@@ -318,6 +334,7 @@ int main(void) {
 
         state = kDefault;
 
+        // This assumes that the bit field starts at the least significant bit
         uint8_t opts = options.raw;
         toggle_option(opts ^ 0b00000001, 1);  // Fixed mode
         toggle_option(opts ^ 0b00000010, 2);  // Mode memory
