@@ -38,15 +38,18 @@ enum State {
 };
 
 /**
- * TODO Doc and split into options and runtime state
+ * Persistent configuration of the flashlight
  */
-struct Options {
-  uint8_t fixed_mode : 1;
-  uint8_t mode_memory : 1;      // TODO
-  uint8_t freeze_on_high : 1;
-  uint8_t start_high : 1;
-  uint8_t ramping_up : 1;
-};
+typedef union {
+  uint8_t raw;
+  struct {
+    unsigned fixed_mode : 1;
+    unsigned mode_memory : 1; // TODO
+    unsigned freeze_on_high : 1;
+    unsigned start_high : 1;
+    unsigned ramping_up : 1;  // TODO Remove from Options
+  };
+} Options;
 
 const uint8_t __flash ramp_values[] = { RAMP_VALUES };
 const uint8_t __flash fixed_values[] = { FIXED_VALUES };
@@ -55,7 +58,7 @@ uint8_t microticks = 0;  // TODO Put into register?
 uint8_t ticks = 0;
 
 uint8_t cold_boot_detect[CBD_BYTES] __attribute__((section(".noinit")));
-struct Options options __attribute__((section(".noinit")));
+Options options __attribute__((section(".noinit")));
 enum State state __attribute__((section(".noinit")));
 uint8_t output __attribute__((section(".noinit")));
 uint8_t fast_presses __attribute__((section(".noinit")));
@@ -115,6 +118,23 @@ void blink(uint8_t count, uint16_t speed) {
     delay_ms(speed);
   }
   OCR0B = old_pwm;
+}
+
+/**
+ * User interface to toggle an option.
+ *
+ * @param new_opts New options
+ * @param flashes  Number of flashes
+ */
+void toggle_option(uint8_t new_opts, uint8_t flashes) {
+  blink(flashes, 250);
+  uint8_t old_options = options.raw;
+  options.raw = new_opts;
+  /* save_state(); */
+  blink(32, 500/32);
+  options.raw = old_options;
+  /* save_state(); */
+  _delay_ms(1000);
 }
 
 /**
@@ -281,13 +301,12 @@ int main(void) {
 
         state = kDefault;
 
-        // TODO
-        blink(20, 1500/20);
+        uint8_t opts = options.raw;
+        toggle_option(opts ^ 0b00000001, 1);  // Fixed mode
+        toggle_option(opts ^ 0b00000010, 2);  // Mode memory
+        toggle_option(opts ^ 0b00000100, 3);  // Freeze on high
+        toggle_option(opts ^ 0b00001000, 4);  // Start with high
 
-        // toggle_options((options ^ 0b00000001), 1);
-        // toggle_options((options ^ 0b00000010), 2);
-        // toggle_options((options ^ 0b00000100), 3);
-        // toggle_options(DEFAULTS, 4);
         break;
     }
 
