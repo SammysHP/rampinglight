@@ -1,6 +1,6 @@
 #include <avr/io.h>
 #include <util/delay.h>
-// #include <avr/interrupt.h>
+#include <avr/interrupt.h>
 // #include <avr/eeprom.h>
 // #include <avr/sleep.h>
 
@@ -11,10 +11,6 @@
 #define RAMP_SIZE sizeof(ramp_values)
 #define RAMP_VALUES 5,5,5,5,5,6,6,6,6,7,7,8,8,9,10,11,12,13,14,15,17,18,20,22,23,25,28,30,32,35,38,41,44,47,51,55,59,63,67,71,76,81,86,92,97,103,109,116,122,129,136,144,151,159,167,176,185,194,203,213,223,233,244,255
 #define TURBO_PWM 255
-
-#define RAMPING_STOPPED 0
-#define RAMPING_UP 1
-#define RAMPING_DOWN -1
 
 #define CBD_BYTES 3
 #define CBD_PATTERN 0xAA
@@ -29,24 +25,28 @@
  * States of the state machine.
  */
 enum State {
-  kRamping,  // Ramping up and down
-  kFrozen,   // Frozen ramping level
-  kTurbo,    // Full power
-  kConfig,   // Config menu
+  kRamping,    // Ramping up and down
+  kFrozen,     // Frozen ramping level
+  kTurbo,      // Full power
+  kBattcheck,  // Battery level
+  kConfig,     // Config menu
 };
 
 /**
  * TODO Doc and split into options and runtime state
  */
 struct Options {
-  uint8_t fixed_modes : 1;
-  uint8_t mode_memory : 1;
+  uint8_t fixed_modes : 1;      // TODO
+  uint8_t mode_memory : 1;      // TODO
   uint8_t freeze_on_high : 1;
-  uint8_t start_high : 1;
+  uint8_t start_high : 1;       // TODO
   uint8_t ramping_up : 1;
 };
 
 const uint8_t __flash ramp_values[] = { RAMP_VALUES };
+
+uint8_t microticks = 0;  // TODO Put into register?
+uint8_t ticks = 0;
 
 uint8_t cold_boot_detect[CBD_BYTES] __attribute__((section(".noinit")));
 struct Options options __attribute__((section(".noinit")));
@@ -95,12 +95,28 @@ void set_level(uint8_t level) {
  * @param speed Duration of a single flash.
  */
 void blink(uint8_t count, uint16_t speed) {
+  const uint8_t old_pwm = OCR0B;
   while (count--) {
     set_pwm(40);
     delay_ms(speed);
     set_pwm(0);
     delay_ms(speed);
     delay_ms(speed);
+  }
+  OCR0B = old_pwm;
+}
+
+/**
+ * Timer0 overflow interrupt handler. With phase correct PWM this interrupt is
+ * executed with a frequency of F_CPU/510.
+ */
+ISR(TIM0_OVF_vect) {
+  if (!--microticks) {
+    ++ticks;
+  }
+
+  if (ticks == 15) {
+    fast_presses = 0;
   }
 }
 
@@ -116,11 +132,17 @@ int main(void) {
   options.start_high = 0;
 
   // Phase correct PWM, system clock without prescaler
+  // Frequency will be F_CPU/510
   TCCR0A = (1 << COM0B1) | (1 << WGM00);
   TCCR0B = (1 << CS00);
 
+  // Enable timer overflow interrupt
+  TIMSK0 |= (1 << TOIE0);
+
   // Set PWM pin to output
   DDRB |= (1 << PWM_PIN);
+
+  sei();
 
   // Cold boot detection
   for (int i = CBD_BYTES - 1; i >= 0; --i) {
@@ -136,25 +158,32 @@ int main(void) {
     options.ramping_up = 1;
     output = 1;
   } else {  // User has tapped the power button
-    ++fast_presses;
+    ++fast_presses;  // TODO Handle overflow
 
     // Input handling
-    switch (state) {
-      case kRamping:
-        state = kFrozen;
+    switch (fast_presses) {
+      case 2:
+        state = kTurbo;
         break;
 
-      case kFrozen:
-        state = kRamping;
+      case 3:
+        state = kBattcheck;
         break;
 
-      case kTurbo:
-        state = kRamping;
+      case 10:
+        state = kConfig;
         break;
-    }
 
-    if (fast_presses == 2) {
-      state = kTurbo;
+      default:
+        switch (state) {
+          case kRamping:
+            state = kFrozen;
+            break;
+
+          default:
+            state = kRamping;
+            break;
+        }
     }
   }
 
@@ -190,11 +219,19 @@ int main(void) {
         break;
 
       case kTurbo:
+        // TODO
         // set_pwm(TURBO_PWM);
         blink(20, 500/20);
         break;
 
+      case kBattcheck:
+        // TODO
+        blink(20, 1000/20);
+        break;
+
       case kConfig:
+        // TODO
+        blink(20, 1500/20);
         // set_level(0);
         // _delay_ms(1000);
         // fast_presses = 0;
@@ -206,8 +243,10 @@ int main(void) {
         break;
     }
 
-    // TODO Low voltage protection
-  }
+    // if (ticks == 50) {
+    //   // TODO Low voltage protection
+    //   blink(5, 20);
+    // }
 
-  // TODO Use ISR(TIMER0_OVF_vect) to reset fast_presses (use fast PWM)
+  }
 }
