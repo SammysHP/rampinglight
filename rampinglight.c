@@ -39,7 +39,7 @@ struct Options {
   uint8_t fixed_modes : 1;      // TODO
   uint8_t mode_memory : 1;      // TODO
   uint8_t freeze_on_high : 1;
-  uint8_t start_high : 1;       // TODO
+  uint8_t start_high : 1;
   uint8_t ramping_up : 1;
 };
 
@@ -126,6 +126,7 @@ ISR(TIM0_OVF_vect) {
 int main(void) {
   uint8_t coldboot = 0;
 
+  // TODO Restore states from EEPROM
   options.fixed_modes = 0;
   options.mode_memory = 0;
   options.freeze_on_high = 0;
@@ -156,9 +157,14 @@ int main(void) {
     state = kRamping;
     fast_presses = 0;
     options.ramping_up = 1;
-    output = 1;
+    output = options.start_high ? RAMP_SIZE : 1;
   } else {  // User has tapped the power button
-    ++fast_presses;  // TODO Handle overflow
+    ++fast_presses;
+
+    // TODO Optimize overflow handling
+    if (fast_presses > 10) {
+      fast_presses = 10;
+    }
 
     // Input handling
     switch (fast_presses) {
@@ -192,27 +198,24 @@ int main(void) {
   while (1) {
     switch (state) {
       case kRamping:
-        if (output == RAMP_SIZE) {
-          delay_ms(1000);
-        }
-
         options.ramping_up =
             (options.ramping_up && output < RAMP_SIZE) ||
             (!options.ramping_up && output == 1);
 
-        if (output == RAMP_SIZE && options.freeze_on_high) {
+        output += options.ramping_up ? 1 : -1;
+        set_level(output);
+
+        if (options.freeze_on_high && output == RAMP_SIZE) {
           state = kFrozen;
           break;
         }
 
-        if (options.ramping_up) {
-          ++output;
+        if (output == RAMP_SIZE) {
+          delay_ms(1000);
         } else {
-          --output;
+          delay_ms(RAMP_TIME*1000/RAMP_SIZE);
         }
 
-        set_level(output);
-        delay_ms(RAMP_TIME*1000/RAMP_SIZE);
         break;
 
       case kFrozen:
@@ -231,10 +234,11 @@ int main(void) {
 
       case kConfig:
         // TODO
+        set_level(0);
+        _delay_ms(1000);
+        fast_presses = 0;
         blink(20, 1500/20);
-        // set_level(0);
-        // _delay_ms(1000);
-        // fast_presses = 0;
+        state = kRamping;  // TODO Add kDefault state?
 
         // toggle_options((options ^ 0b00000001), 1);
         // toggle_options((options ^ 0b00000010), 2);
