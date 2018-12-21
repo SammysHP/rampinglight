@@ -13,7 +13,7 @@
 #define TURBO_PWM 255
 
 #define FIXED_SIZE sizeof(fixed_values)
-#define FIXED_VALUES 5,18,86,255
+#define FIXED_VALUES 5,35,118,255
 
 #define CBD_BYTES 4
 #define CBD_PATTERN 0xAA
