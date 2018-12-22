@@ -369,7 +369,15 @@ int main(void) {
       case kDefault:
         // This is a special state that does nothing but deciding which is the
         // correct state for the current mode (ramping vs fixed)
-        state = options.fixed_mode ? kFixed : kRamping;
+        if (options.fixed_mode) {
+          state = kFixed;
+        } else {
+          if (options.mode_memory) {
+            state = kFrozen;
+          } else {
+            state = kRamping;
+          }
+        }
         continue;  // Skip main loop cycle and continue with correct mode
 
       case kRamping:
