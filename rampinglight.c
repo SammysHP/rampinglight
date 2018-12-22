@@ -19,6 +19,7 @@
 #include <util/delay.h>
 #include <avr/interrupt.h>
 #include <avr/eeprom.h>
+#include <util/atomic.h>
 // #include <avr/sleep.h>
 
 #define PWM_PIN PB1
@@ -37,6 +38,7 @@
 
 #define EEPROM_SIZE 64
 #define EEPROM_OPTIONS (EEPROM_SIZE-1)
+#define EEPROM_OUTPUT_WL_BYTES 16
 
 /*
 #define ADC_CHANNEL 0x01    // MUX 01 corresponds with PB2
@@ -73,7 +75,7 @@ typedef union {
 const uint8_t __flash ramp_values[] = { RAMP_VALUES };
 const uint8_t __flash fixed_values[] = { FIXED_VALUES };
 
-uint8_t microticks = 0;  // TODO Put into register?
+register uint8_t microticks asm("r7");
 uint8_t ticks = 0;
 
 uint8_t cold_boot_detect[CBD_BYTES] __attribute__((section(".noinit")));
@@ -82,6 +84,8 @@ enum State state __attribute__((section(".noinit")));
 uint8_t output __attribute__((section(".noinit")));
 uint8_t fast_presses __attribute__((section(".noinit")));
 uint8_t ramping_up __attribute__((section(".noinit")));
+register uint8_t output_eeprom asm("r6");
+register uint8_t output_eeprom_pos asm("r5");
 
 /**
  * Busy wait delay with ms resolution. This function allows to choose the
@@ -100,7 +104,7 @@ void delay_ms(uint16_t duration) {
  *
  * @param pwm Raw PWM level.
  */
-void set_pwm(uint8_t pwm) {
+static inline void set_pwm(uint8_t pwm) {
   OCR0B = pwm;
 }
 
@@ -151,10 +155,76 @@ void save_options(void) {
 }
 
 /**
+ * Internal function to erase or dirty write a byte to EEPROM.
+ *
+ * @param address Address in EEPROM
+ * @param data    Data that should be written to address
+ * @param eecr    Write (EEPM1) or erase (EEPM0) operation
+ */
+static void eeprom_erase_or_write_byte(const uint8_t address, const uint8_t data, const uint8_t eecr) {
+  while (EECR & (1 << EEPE));
+  EECR = eecr;
+  EEARL = address;
+  EEDR = data;
+  ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
+    EECR |= (1<<EEMPE);
+    EECR |= (1<<EEPE);
+  }
+}
+
+/**
+ * Dirty write a byte to EEPROM without erase cycle.
+ *
+ * @param address Address in EEPROM
+ * @param data    Data that should be written to address
+ */
+void eeprom_onlywrite_byte(const uint8_t address, const uint8_t data) {
+  eeprom_erase_or_write_byte(address, data, (1 << EEPM1));
+}
+
+/**
+ * Erase a byte in EEPROM without writing anything to it.
+ *
+ * @param address Address in EEPROM
+ */
+void eeprom_erase_byte(const uint8_t address) {
+  eeprom_erase_or_write_byte(address, 0, (1 << EEPM0));
+}
+
+/**
+ * Write current output level to EEPROM with wear leveling.
+ */
+void save_output(void) {
+  if (!options.mode_memory) return;
+
+  uint8_t i = EEPROM_OUTPUT_WL_BYTES;
+  do {
+    --i;
+    eeprom_erase_byte(i);
+  } while (i);
+
+  // Store inverted so that an output of 0 (invalid in this code) can be used
+  // to detect unused bytes in the EEPROM (0xFF)
+  eeprom_onlywrite_byte(output_eeprom_pos, ~output);  // TODO Write without erase
+}
+
+/**
  * Restore state from EEPROM.
  */
 void restore_state(void) {
   options.raw = ~eeprom_read_byte((uint8_t *)EEPROM_OPTIONS);
+  if (!options.mode_memory) return;
+
+  // From back to front find the first byte that is not uninitialized EEPROM
+  output_eeprom_pos = EEPROM_OUTPUT_WL_BYTES - 1;
+  while (output_eeprom_pos && !(output_eeprom = ~eeprom_read_byte((uint8_t *)output_eeprom_pos))) {
+    --output_eeprom_pos;
+  }
+  if (output_eeprom_pos == EEPROM_OUTPUT_WL_BYTES - 1) {
+    output_eeprom_pos = 0;
+  } else {
+    ++output_eeprom_pos;
+  }
 }
 
 /**
@@ -171,7 +241,7 @@ void toggle_option(uint8_t new_opts, uint8_t flashes) {
   blink(32, 500/32);
   options.raw = old_options;
   save_options();
-  _delay_ms(1000);
+  delay_ms(1000);
 }
 
 /**
@@ -192,9 +262,7 @@ ISR(TIM0_OVF_vect) {
  * Entry point.
  */
 int main(void) {
-  uint8_t coldboot = 0;
-
-  restore_state();
+  microticks = 0;
 
   // Phase correct PWM, system clock without prescaler
   // Frequency will be F_CPU/510
@@ -202,14 +270,17 @@ int main(void) {
   TCCR0B = (1 << CS00);
 
   // Enable timer overflow interrupt
-  TIMSK0 |= (1 << TOIE0);
+  TIMSK0 |= (1 << TOIE0);  // TODO Optimization: no or
 
   // Set PWM pin to output
-  DDRB |= (1 << PWM_PIN);
+  DDRB |= (1 << PWM_PIN);  // TODO Optimization: no or
+
+  restore_state();
 
   sei();
 
   // Cold boot detection
+  uint8_t coldboot = 0;
   for (int i = CBD_BYTES - 1; i >= 0; --i) {
     if (cold_boot_detect[i] != CBD_PATTERN) {
       coldboot = 1;
@@ -222,10 +293,14 @@ int main(void) {
     fast_presses = 0;
     ramping_up = 1;
 
-    if (options.start_high) {
-      output = options.fixed_mode ? FIXED_SIZE : RAMP_SIZE;
+    if (options.mode_memory && output_eeprom) {
+      output = output_eeprom;
     } else {
-      output = 1;
+      if (options.start_high) {
+        output = options.fixed_mode ? FIXED_SIZE : RAMP_SIZE;
+      } else {
+        output = 1;
+      }
     }
   } else {  // User has tapped the power button
     ++fast_presses;
@@ -249,6 +324,7 @@ int main(void) {
         default:
           output = (output % FIXED_SIZE) + 1;
           state = kFixed;
+          save_output();
           break;
       }
     } else {
@@ -269,6 +345,7 @@ int main(void) {
           switch (state) {
             case kRamping:
               state = kFrozen;
+              save_output();
               break;
 
             default:
@@ -330,7 +407,7 @@ int main(void) {
 
       case kConfig:
         set_level(0);
-        _delay_ms(1000);
+        delay_ms(1000);
 
         state = kDefault;
 
