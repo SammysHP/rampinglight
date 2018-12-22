@@ -250,15 +250,18 @@ void toggle_option(uint8_t new_opts, uint8_t flashes) {
 }
 
 /**
- * Timer0 overflow interrupt handler. With phase correct PWM this interrupt is
- * executed with a frequency of F_CPU/510.
+ * Timer0 overflow interrupt handler.
+ * Frequency will be F_CPU/(8*256) = 2343.75 Hz.
+ *
+ * One microtick: ~0.427 ms
+ * One tick (256 microticks): ~0.109227 s
  */
 ISR(TIM0_OVF_vect) {
   if (!--microticks) {
     ++ticks;
   }
 
-  if (ticks == 15) {
+  if (ticks == 4) {  // ~440 ms
     fast_presses = 0;
   }
 }
@@ -269,10 +272,10 @@ ISR(TIM0_OVF_vect) {
 int main(void) {
   microticks = 0;
 
-  // Phase correct PWM, system clock without prescaler
-  // Frequency will be F_CPU/510
-  TCCR0A = (1 << COM0B1) | (1 << WGM00);
-  TCCR0B = (1 << CS00);
+  // Fast PWM, system clock with /8 prescaler
+  // Frequency will be F_CPU/(8*256) = 2343.75 Hz
+  TCCR0A = (1 << COM0B1) | (1 << WGM01) | (1 << WGM00);
+  TCCR0B = (1 << CS01);
 
   // Enable timer overflow interrupt
   TIMSK0 |= (1 << TOIE0);  // TODO Optimization: no or
@@ -282,7 +285,7 @@ int main(void) {
 
   restore_state();
 
-  sei();
+  sei();  // Restore state before enabling interrupts (EEPROM read)!
 
   // Cold boot detection
   uint8_t coldboot = 0;
@@ -434,7 +437,7 @@ int main(void) {
         break;
     }
 
-    // if (ticks == 50) {
+    // if (ticks == 50) {  // ~28 s
     //   // TODO Low voltage protection
     //   blink(5, 20);
     // }
