@@ -8,11 +8,11 @@
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <avr/io.h>
@@ -66,7 +66,7 @@ typedef union {
   uint8_t raw;
   struct {
     unsigned fixed_mode : 1;
-    unsigned mode_memory : 1; // TODO
+    unsigned mode_memory : 1;
     unsigned freeze_on_high : 1;
     unsigned start_high : 1;
   };
@@ -200,15 +200,17 @@ void save_options(void) {
 void save_output(void) {
   if (!options.mode_memory) return;
 
-  uint8_t i = EEPROM_OUTPUT_WL_BYTES;
-  do {
-    --i;
-    eeprom_erase_byte(i);
-  } while (i);
+  if (!output_eeprom_pos) {
+    uint8_t i = EEPROM_OUTPUT_WL_BYTES;
+    do {
+      --i;
+      eeprom_erase_byte(i);
+    } while (i);
+  }
 
   // Store inverted so that an output of 0 (invalid in this code) can be used
   // to detect unused bytes in the EEPROM (0xFF)
-  eeprom_onlywrite_byte(output_eeprom_pos, ~output);  // TODO Write without erase
+  eeprom_onlywrite_byte(output_eeprom_pos, ~output);
 }
 
 /**
