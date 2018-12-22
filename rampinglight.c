@@ -107,6 +107,11 @@ void delay_ms(uint16_t duration) {
  */
 static inline void set_pwm(uint8_t pwm) {
   OCR0B = pwm;
+  if (!pwm) {
+    TCCR0A &= ~(1 << COM0B1);
+  } else {
+    TCCR0A |= (1 << COM0B1);
+  }
 }
 
 /**
@@ -142,7 +147,7 @@ void blink(uint8_t count, uint16_t speed) {
     delay_ms(speed);
     delay_ms(speed);
   }
-  OCR0B = old_pwm;
+  set_pwm(old_pwm);
 }
 
 /**
