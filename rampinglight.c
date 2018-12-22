@@ -145,16 +145,6 @@ void blink(uint8_t count, uint16_t speed) {
 }
 
 /**
- * Write current options to EEPROM.
- */
-void save_options(void) {
-  // Not necessary to use eeprom_update_byte() because options will usually be
-  // written only if they have changed.
-  // Store inverted so that a read from uninitialized EEPROM results in 0.
-  eeprom_write_byte((uint8_t *)EEPROM_OPTIONS, ~options.raw);
-}
-
-/**
  * Internal function to erase or dirty write a byte to EEPROM.
  *
  * @param address Address in EEPROM
@@ -189,6 +179,19 @@ void eeprom_onlywrite_byte(const uint8_t address, const uint8_t data) {
  */
 void eeprom_erase_byte(const uint8_t address) {
   eeprom_erase_or_write_byte(address, 0, (1 << EEPM0));
+}
+
+/**
+ * Write current options to EEPROM.
+ */
+void save_options(void) {
+  // Not necessary to use eeprom_update_byte() because options will usually be
+  // written only if they have changed.
+  // Using non-atomic erase and write to save some bytes by not using avr-libc
+  // method eeprom_write_byte().
+  // Store inverted so that a read from uninitialized EEPROM results in 0.
+  eeprom_erase_byte(EEPROM_OPTIONS);
+  eeprom_onlywrite_byte(EEPROM_OPTIONS, ~options.raw);
 }
 
 /**
