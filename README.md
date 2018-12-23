@@ -69,3 +69,11 @@ If the voltage is below 3.2 V the flashlight will flicker for half a second ever
 ## Development
 
 TODO
+
+
+## License and acknowledgments
+
+Thanks to ToyKeeper who was a great inspiration while writing this code. Her [flashlight firmware repository](https://launchpad.net/flashlight-firmware) contains a huge collection of flashlight firmwares.
+
+Copyright (c) 2018 Sven Karsten Greiner  
+This code is licensed under GPL 3 or any later version, see COPYING for details.
