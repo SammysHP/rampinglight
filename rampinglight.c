@@ -94,8 +94,7 @@ register Options options asm("r7");
 register uint8_t output_eeprom asm("r6");
 register uint8_t output_eeprom_pos asm("r5");
 register uint8_t microticks asm("r4");
-
-volatile uint8_t ticks = 0;
+register uint8_t ticks asm("r3");
 
 /**
  * Busy wait delay with ms resolution. This function allows to choose the
@@ -107,6 +106,14 @@ void delay_ms(uint16_t duration) {
   while (duration--) {
     _delay_ms(1);
   }
+}
+
+/**
+ * Busy wait one second. Saves some space because call does not require setup
+ * of arguments.
+ */
+void delay_s(void) {
+  delay_ms(1000);
 }
 
 /**
@@ -261,7 +268,7 @@ void toggle_option(uint8_t new_opts, uint8_t flashes) {
   blink(24, FLICKER_TIME);
   options.raw = old_options;
   save_options();
-  delay_ms(1000);
+  delay_s();
 }
 
 #if defined(LOW_VOLTAGE_PROTECTION) || defined(BATTCHECK)
@@ -299,6 +306,7 @@ ISR(TIM0_OVF_vect) {
  */
 int main(void) {
   microticks = 0;
+  ticks = 0;
 
   // Fast PWM, system clock with /8 prescaler
   // Frequency will be F_CPU/(8*256) = 2343.75 Hz
@@ -441,7 +449,7 @@ int main(void) {
         }
 
         if (output == RAMP_SIZE) {
-          delay_ms(1000);
+          delay_s();
         } else {
           delay_ms(RAMP_TIME*1000/RAMP_SIZE);
         }
@@ -470,13 +478,13 @@ int main(void) {
         }
 
         blink(i+1, FLASH_TIME);
-        delay_ms(1000);
+        delay_s();
         break;
 #endif  // ifdef BATTCHECK
 
       case kConfig:
         set_level(0);
-        delay_ms(1000);
+        delay_s();
 
         state = kDefault;
 
