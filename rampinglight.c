@@ -392,7 +392,7 @@ int main(void) {
           break;
 
 #ifdef BATTCHECK
-        case 3:
+        case FIXED_SIZE + 1:
           state = kBattcheck;
           break;
 #endif  // ifdef BATTCHECK
