@@ -16,7 +16,7 @@
  */
 
 // Optional features
-//#define BATTCHECK
+#define BATTCHECK
 #define LOW_VOLTAGE_PROTECTION
 
 #include <avr/io.h>
@@ -32,7 +32,10 @@
 #define FLICKER_TIME 16
 
 #define BAT_LOW  141  // ~3.2 V
-#define BAT_CRIT 124  // ~2.8 V
+#define BAT_CRIT 120  // ~2.7 V
+#define BAT_75P  175  // ~4.0 V
+#define BAT_50P  167  // ~3.8 V
+#define BAT_25P  154  // ~3.5 V
 
 #define RAMP_TIME 3
 #define RAMP_SIZE sizeof(ramp_values)
@@ -48,12 +51,6 @@
 #define EEPROM_SIZE 64
 #define EEPROM_OPTIONS (EEPROM_SIZE-1)
 #define EEPROM_OUTPUT_WL_BYTES 16
-
-/*
-#define ADC_CHANNEL 0x01    // MUX 01 corresponds with PB2
-#define ADC_DIDR    ADC1D   // Digital input disable bit corresponding with PB2
-#define ADC_PRSCL   0x06    // clk/64
-*/
 
 /**
  * States of the state machine.
@@ -267,6 +264,11 @@ void toggle_option(uint8_t new_opts, uint8_t flashes) {
 }
 
 #if defined(LOW_VOLTAGE_PROTECTION) || defined(BATTCHECK)
+/**
+ * Measure battery voltage.
+ *
+ * @return 8 bit battery voltage as ADC value
+ */
 static uint8_t battery_voltage(void) {
   ADCSRA |= (1 << ADSC);
   while (ADCSRA & (1 << ADSC));
@@ -449,9 +451,7 @@ int main(void) {
         break;
 
       case kTurbo:
-        // TODO
-        // set_pwm(TURBO_PWM);
-        blink(20, 500/20);
+        set_pwm(TURBO_PWM);
         break;
 
       case kFixed:
@@ -459,8 +459,22 @@ int main(void) {
 
 #ifdef BATTCHECK
       case kBattcheck:
-        // TODO
-        blink(20, 1000/20);
+        set_pwm(0);
+
+        const uint8_t voltage = battery_voltage();
+        uint8_t flashes;
+        if (voltage >= BAT_75P) {
+          flashes = 4;
+        } else if (voltage >= BAT_50P) {
+          flashes = 3;
+        } else if (voltage >= BAT_25P) {
+          flashes = 2;
+        } else {
+          flashes = 1;
+        }
+
+        blink(flashes, FLASH_TIME);
+        delay_ms(1000);
         break;
 #endif  // ifdef BATTCHECK
 
