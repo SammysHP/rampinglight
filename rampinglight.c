@@ -15,6 +15,9 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
+// Optional features
+//#define BATTCHECK
+
 #include <avr/io.h>
 #include <util/delay.h>
 #include <avr/interrupt.h>
@@ -55,8 +58,10 @@ enum State {
   kFrozen,     // Frozen ramping level
   kTurbo,      // Full power
   kFixed,      // Fixed mode
-  kBattcheck,  // Battery level
   kConfig,     // Config menu
+#ifdef BATTCHECK
+  kBattcheck,  // Battery level
+#endif  // ifdef BATTCHECK
 };
 
 /**
@@ -327,9 +332,11 @@ int main(void) {
     // Input handling
     if (options.fixed_mode) {
       switch (fast_presses) {
+#ifdef BATTCHECK
         case FIXED_SIZE + 1:
           state = kBattcheck;
           break;
+#endif  // ifdef BATTCHECK
 
         case 10:
           state = kConfig;
@@ -347,9 +354,11 @@ int main(void) {
           state = kTurbo;
           break;
 
+#ifdef BATTCHECK
         case 3:
           state = kBattcheck;
           break;
+#endif  // ifdef BATTCHECK
 
         case 10:
           state = kConfig;
@@ -422,10 +431,12 @@ int main(void) {
       case kFixed:
         break;
 
+#ifdef BATTCHECK
       case kBattcheck:
         // TODO
         blink(20, 1000/20);
         break;
+#endif  // ifdef BATTCHECK
 
       case kConfig:
         set_level(0);
