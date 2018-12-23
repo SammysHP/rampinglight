@@ -82,6 +82,7 @@ typedef union {
 
 const uint8_t __flash ramp_values[] = { RAMP_VALUES };
 const uint8_t __flash fixed_values[] = { FIXED_VALUES };
+const uint8_t __flash voltage_table[] = { 0, BAT_25P, BAT_50P, BAT_75P };
 
 uint8_t cold_boot_detect[CBD_BYTES] __attribute__((section(".noinit")));
 enum State state __attribute__((section(".noinit")));
@@ -462,18 +463,13 @@ int main(void) {
         set_pwm(0);
 
         const uint8_t voltage = battery_voltage();
-        uint8_t flashes;
-        if (voltage >= BAT_75P) {
-          flashes = 4;
-        } else if (voltage >= BAT_50P) {
-          flashes = 3;
-        } else if (voltage >= BAT_25P) {
-          flashes = 2;
-        } else {
-          flashes = 1;
+
+        uint8_t i = 3;
+        while (voltage < voltage_table[i]) {
+          --i;
         }
 
-        blink(flashes, FLASH_TIME);
+        blink(i+1, FLASH_TIME);
         delay_ms(1000);
         break;
 #endif  // ifdef BATTCHECK
