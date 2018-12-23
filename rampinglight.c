@@ -472,7 +472,7 @@ int main(void) {
 
         const uint8_t voltage = battery_voltage();
 
-        uint8_t i = 3;
+        uint8_t i = sizeof(voltage_table) - 1;
         while (voltage < voltage_table[i]) {
           --i;
         }
