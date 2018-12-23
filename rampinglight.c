@@ -28,8 +28,8 @@
 #define PWM_PIN PB1
 #define VOLTAGE_ADC_CHANNEL 0x01  // ADC1/PB2
 
-#define FLASH_TIME 200
-#define FLICKER_TIME 16
+#define FLASH_TIME 20
+#define FLICKER_TIME 2
 
 #define BAT_LOW  141  // ~3.2 V
 #define BAT_CRIT 120  // ~2.7 V
@@ -97,14 +97,14 @@ register uint8_t microticks asm("r4");
 register uint8_t ticks asm("r3");
 
 /**
- * Busy wait delay with ms resolution. This function allows to choose the
+ * Busy wait delay with 10 ms resolution. This function allows to choose the
  * duration during runtime.
  *
- * @param duration Wait duration in ms.
+ * @param duration Wait duration in n*10 ms.
  */
-void delay_ms(uint16_t duration) {
+void delay_10ms(uint8_t duration) {
   while (duration--) {
-    _delay_ms(1);
+    _delay_ms(10);
   }
 }
 
@@ -113,7 +113,7 @@ void delay_ms(uint16_t duration) {
  * of arguments.
  */
 void delay_s(void) {
-  delay_ms(1000);
+  delay_10ms(100);
 }
 
 /**
@@ -152,16 +152,16 @@ void set_level(uint8_t level) {
  * Blink or strobe the LED on low intensity.
  *
  * @param count Number of flashes.
- * @param speed Duration of a single flash.
+ * @param speed Duration of a single flash in n*10 ms.
  */
-void blink(uint8_t count, uint16_t speed) {
+void blink(uint8_t count, const uint8_t speed) {
   const uint8_t old_pwm = OCR0B;
   while (count--) {
     set_pwm(40);
-    delay_ms(speed);
+    delay_10ms(speed);
     set_pwm(0);
-    delay_ms(speed);
-    delay_ms(speed);
+    delay_10ms(speed);
+    delay_10ms(speed);
   }
   set_pwm(old_pwm);
 }
@@ -451,7 +451,7 @@ int main(void) {
         if (output == RAMP_SIZE) {
           delay_s();
         } else {
-          delay_ms(RAMP_TIME*1000/RAMP_SIZE);
+          delay_10ms(RAMP_TIME*100/RAMP_SIZE);
         }
 
         break;
@@ -509,7 +509,9 @@ int main(void) {
           // that the flashlight is still turned on but the battery is dying.
           // TODO If free space in flash, disable as many components as possible
           blink(3, FLASH_TIME/2);
-          delay_ms(3000);
+          delay_s();
+          delay_s();
+          delay_s();
         }
       } else if (voltage <= BAT_LOW) {
         blink(16, FLICKER_TIME);
