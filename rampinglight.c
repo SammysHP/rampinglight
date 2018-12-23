@@ -17,16 +17,22 @@
 
 // Optional features
 //#define BATTCHECK
+#define LOW_VOLTAGE_PROTECTION
 
 #include <avr/io.h>
 #include <util/delay.h>
 #include <avr/interrupt.h>
 #include <avr/eeprom.h>
 #include <util/atomic.h>
-// #include <avr/sleep.h>
 
 #define PWM_PIN PB1
-#define VOLTAGE_PIN PB2
+#define VOLTAGE_ADC_CHANNEL 0x01  // ADC1/PB2
+
+#define FLASH_TIME 200
+#define FLICKER_TIME 16
+
+#define BAT_LOW  141  // ~3.2 V
+#define BAT_CRIT 124  // ~2.8 V
 
 #define RAMP_TIME 3
 #define RAMP_SIZE sizeof(ramp_values)
@@ -91,7 +97,7 @@ register uint8_t output_eeprom asm("r6");
 register uint8_t output_eeprom_pos asm("r5");
 register uint8_t microticks asm("r4");
 
-uint8_t ticks = 0;
+volatile uint8_t ticks = 0;
 
 /**
  * Busy wait delay with ms resolution. This function allows to choose the
@@ -250,15 +256,23 @@ void restore_state(void) {
  * @param flashes  Number of flashes
  */
 void toggle_option(uint8_t new_opts, uint8_t flashes) {
-  blink(flashes, 200);
+  blink(flashes, FLASH_TIME);
   uint8_t old_options = options.raw;
   options.raw = new_opts;
   save_options();
-  blink(32, 500/32);
+  blink(24, FLICKER_TIME);
   options.raw = old_options;
   save_options();
   delay_ms(1000);
 }
+
+#if defined(LOW_VOLTAGE_PROTECTION) || defined(BATTCHECK)
+static uint8_t battery_voltage(void) {
+  ADCSRA |= (1 << ADSC);
+  while (ADCSRA & (1 << ADSC));
+  return ADCH;
+}
+#endif  // if defined(LOW_VOLTAGE_PROTECTION) || defined(BATTCHECK)
 
 /**
  * Timer0 overflow interrupt handler.
@@ -293,6 +307,18 @@ int main(void) {
 
   // Set PWM pin to output
   DDRB |= (1 << PWM_PIN);  // TODO Optimization: no or
+
+#if defined(LOW_VOLTAGE_PROTECTION) || defined(BATTCHECK)
+  ADMUX =
+    (1 << REFS0) |        // Internal 1.1 V reference
+    (1 << ADLAR) |        // Left adjust
+    VOLTAGE_ADC_CHANNEL;  // ADC MUX channel
+
+  ADCSRA =
+    (1 << ADEN) |                 // Enable ADC
+    (1 << ADSC) |                 // Start conversion
+    (1 << ADPS2) | (1 << ADPS1);  // Set /64 prescaler
+#endif  // if defined(LOW_VOLTAGE_PROTECTION) || defined(BATTCHECK)
 
   restore_state();
 
@@ -454,9 +480,23 @@ int main(void) {
         break;
     }
 
-    // if (ticks == 50) {  // ~28 s
-    //   // TODO Low voltage protection
-    //   blink(5, 20);
-    // }
+#ifdef LOW_VOLTAGE_PROTECTION
+    if ((ticks & 0x7F) == 14) {  // Every ~14 s starting after ~1.5 s
+      // TODO Take several measurements for noise filtering?
+      const uint8_t voltage = battery_voltage();
+      if (voltage <= BAT_CRIT) {
+        set_pwm(0);
+        while (1) {
+          // Do not go to sleep, but flash every few seconds to notify the user
+          // that the flashlight is still turned on but the battery is dying.
+          // TODO If free space in flash, disable as many components as possible
+          blink(3, FLASH_TIME/2);
+          delay_ms(3000);
+        }
+      } else if (voltage <= BAT_LOW) {
+        blink(16, FLICKER_TIME);
+      }
+    }
+#endif  // ifdef LOW_VOLTAGE_PROTECTION
   }
 }
