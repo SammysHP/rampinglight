@@ -30,6 +30,7 @@
 
 #define FLASH_TIME 20
 #define FLICKER_TIME 2
+#define FLASH_PWM 40  // TODO Using TURBO_PWM saves 6 bytes due to optimization
 
 #define BAT_LOW  141  // ~3.2 V
 #define BAT_CRIT 120  // ~2.7 V
@@ -121,17 +122,26 @@ void delay_s(void) {
 }
 
 /**
+ * Enable PWM output with currently set value.
+ */
+void enable_output(void) {
+  TCCR0A |= (1 << COM0B1);
+}
+
+/**
+ * Disable PWM output and keep current value.
+ */
+void disable_output(void) {
+  TCCR0A &= ~(1 << COM0B1);
+}
+
+/**
  * Set output, i.e. compare register.
  *
  * @param pwm Raw PWM level.
  */
-static inline void set_pwm(uint8_t pwm) {
+static void set_pwm(const uint8_t pwm) {
   OCR0B = pwm;
-  if (!pwm) {
-    TCCR0A &= ~(1 << COM0B1);
-  } else {
-    TCCR0A |= (1 << COM0B1);
-  }
 }
 
 /**
@@ -140,34 +150,34 @@ static inline void set_pwm(uint8_t pwm) {
  *
  * @param level Index in ramp_values or fixed_values depending on fixed_mode
  */
-void set_level(uint8_t level) {
+void set_level(const uint8_t level) {
   if (level == 0) {
-    set_pwm(0);
+    disable_output();
   } else {
     if (options.fixed_mode) {
       set_pwm(fixed_values[level - 1]);
     } else {
       set_pwm(ramp_values[level - 1]);
     }
+    enable_output();
   }
 }
 
 /**
- * Blink or strobe the LED on low intensity.
+ * Blink or strobe the LED on the current intensity. After this function
+ * returns the output will be disabled!
  *
  * @param count Number of flashes.
  * @param speed Duration of a single flash in n*10 ms.
  */
 void blink(uint8_t count, const uint8_t speed) {
-  const uint8_t old_pwm = OCR0B;
   while (count--) {
-    set_pwm(40);
+    enable_output();
     delay_10ms(speed);
-    set_pwm(0);
+    disable_output();
     delay_10ms(speed);
     delay_10ms(speed);
   }
-  set_pwm(old_pwm);
 }
 
 /**
@@ -265,7 +275,7 @@ void restore_state(void) {
  * @param new_opts New options
  * @param flashes  Number of flashes
  */
-void toggle_option(uint8_t new_opts, uint8_t flashes) {
+void toggle_option(const uint8_t new_opts, const uint8_t flashes) {
   blink(flashes, FLASH_TIME);
   uint8_t old_options = options.raw;
   options.raw = new_opts;
@@ -465,6 +475,10 @@ int main(void) {
         break;
 
       case kTurbo:
+        // assert(output_is_on);
+        // Turbo mode is only entered by user action which means the driver was
+        // restarted which in turn means that the output was enabled during
+        // initialization
         set_pwm(TURBO_PWM);
         break;
 
@@ -473,7 +487,7 @@ int main(void) {
 
 #ifdef BATTCHECK
       case kBattcheck:
-        set_pwm(0);
+        disable_output();
 
         const uint8_t voltage = battery_voltage();
 
@@ -482,16 +496,18 @@ int main(void) {
           --i;
         }
 
+        set_pwm(FLASH_PWM);
         blink(i+1, FLASH_TIME);
         delay_s();
         break;
 #endif  // ifdef BATTCHECK
 
       case kConfig:
-        set_level(0);
+        disable_output();
+        set_pwm(FLASH_PWM);
         delay_s();
 
-        state = kDefault;
+        state = kDefault;  // Exit config mode after one iteration
 
         // This assumes that the bit field starts at the least significant bit
         uint8_t opts = options.raw;
@@ -499,6 +515,8 @@ int main(void) {
         toggle_option(opts ^ 0b00000010, 2);  // Mode memory
         toggle_option(opts ^ 0b00000100, 3);  // Freeze on high
         toggle_option(opts ^ 0b00001000, 4);  // Start with high
+
+        set_level(output);  // Restore previous level
 
         break;
     }
@@ -508,7 +526,8 @@ int main(void) {
       // TODO Take several measurements for noise filtering?
       const uint8_t voltage = battery_voltage();
       if (voltage <= BAT_CRIT) {
-        set_pwm(0);
+        disable_output();
+        set_pwm(FLASH_PWM);
         while (1) {
           // Do not go to sleep, but flash every few seconds to notify the user
           // that the flashlight is still turned on but the battery is dying.
@@ -519,7 +538,9 @@ int main(void) {
           delay_s();
         }
       } else if (voltage <= BAT_LOW) {
+        // Flicker with same brightness as current mode
         blink(16, FLICKER_TIME);
+        enable_output();
       }
     }
 #endif  // ifdef LOW_VOLTAGE_PROTECTION
