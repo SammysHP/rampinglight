@@ -18,6 +18,7 @@
 // Optional features
 #define BATTCHECK
 #define LOW_VOLTAGE_PROTECTION
+#define DELAY_EVENT
 
 #include <avr/io.h>
 #include <util/delay.h>
@@ -296,9 +297,11 @@ ISR(TIM0_OVF_vect) {
     ++ticks;
   }
 
+#ifndef DELAY_EVENT
   if (ticks == 4) {  // ~440 ms
     fast_presses = 0;
   }
+#endif  // ifndef DELAY_EVENT
 }
 
 /**
@@ -366,6 +369,12 @@ int main(void) {
       fast_presses = 10;
     }
 
+#ifdef DELAY_EVENT
+    set_level(output);
+    delay_10ms(40);
+    // TODO Delaying here prevents the light from turning off when entering config mode
+#endif  // ifdef DELAY_EVENT
+
     // Input handling
     if (options.fixed_mode) {
       switch (fast_presses) {
@@ -418,6 +427,10 @@ int main(void) {
   }
 
   set_level(output);
+
+#ifdef DELAY_EVENT
+  fast_presses = 0;
+#endif  // ifdef DELAY_EVENT
 
   while (1) {
     switch (state) {
