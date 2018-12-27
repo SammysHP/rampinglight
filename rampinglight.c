@@ -532,10 +532,12 @@ int main(void) {
           // Do not go to sleep, but flash every few seconds to notify the user
           // that the flashlight is still turned on but the battery is dying.
           // TODO If free space in flash, disable as many components as possible
-          blink(3, FLASH_TIME/2);
-          delay_s();
-          delay_s();
-          delay_s();
+          blink(5, FLASH_TIME/4);
+          for (uint8_t i=5; i; --i) {
+            delay_s();
+            asm volatile ("");  // Trick GCC to prevent loop unrolling
+            asm volatile ("");
+          }
         }
       } else if (voltage <= BAT_LOW) {
         // Flicker with same brightness as current mode
