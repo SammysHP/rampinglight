@@ -99,6 +99,9 @@ register uint8_t output_eeprom asm("r6");
 register uint8_t output_eeprom_pos asm("r5");
 register uint8_t microticks asm("r4");
 register uint8_t ticks asm("r3");
+#ifdef LOW_VOLTAGE_PROTECTION
+register uint8_t lvp_overflow asm("r2");
+#endif  // ifdef LOW_VOLTAGE_PROTECTION
 
 /**
  * Busy wait delay with 10 ms resolution. This function allows to choose the
@@ -303,6 +306,12 @@ ISR(TIM0_OVF_vect) {
   if (ticks == 4) {  // ~440 ms
     fast_presses = 0;
   }
+
+#ifdef LOW_VOLTAGE_PROTECTION
+  if ((ticks & 0x7F) == 14) {  // Every ~14 s starting after ~1.5 s
+    lvp_overflow = 1;
+  }
+#endif  // ifdef LOW_VOLTAGE_PROTECTION
 }
 
 /**
@@ -311,6 +320,9 @@ ISR(TIM0_OVF_vect) {
 int main(void) {
   microticks = 0;
   ticks = 0;
+#ifdef LOW_VOLTAGE_PROTECTION
+  lvp_overflow = 0;
+#endif  // ifdef LOW_VOLTAGE_PROTECTION
 
   // Fast PWM, system clock with /8 prescaler
   // Frequency will be F_CPU/(8*256) = 2343.75 Hz
@@ -503,7 +515,8 @@ int main(void) {
     }
 
 #ifdef LOW_VOLTAGE_PROTECTION
-    if ((ticks & 0x7F) == 14) {  // Every ~14 s starting after ~1.5 s
+    if (lvp_overflow) {
+      lvp_overflow = 0;
       // TODO Take several measurements for noise filtering?
       const uint8_t voltage = battery_voltage();
       if (voltage <= BAT_CRIT) {
