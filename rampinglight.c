@@ -52,6 +52,10 @@
 #define EEPROM_OPTIONS (EEPROM_SIZE-1)
 #define EEPROM_OUTPUT_WL_BYTES 16
 
+#define TURBO_PRESSES 2
+#define BATTCHECK_PRESSES FIXED_SIZE+1
+#define CONFIG_PRESSES 10
+
 /**
  * States of the state machine.
  */
@@ -370,12 +374,12 @@ int main(void) {
     if (options.fixed_mode) {
       switch (fast_presses) {
 #ifdef BATTCHECK
-        case FIXED_SIZE + 1:
+        case BATTCHECK_PRESSES:
           state = kBattcheck;
           break;
 #endif  // ifdef BATTCHECK
 
-        case 10:
+        case CONFIG_PRESSES:
           state = kConfig;
           break;
 
@@ -387,17 +391,17 @@ int main(void) {
       }
     } else {
       switch (fast_presses) {
-        case 2:
+        case TURBO_PRESSES:
           state = kTurbo;
           break;
 
 #ifdef BATTCHECK
-        case FIXED_SIZE + 1:
+        case BATTCHECK_PRESSES:
           state = kBattcheck;
           break;
 #endif  // ifdef BATTCHECK
 
-        case 10:
+        case CONFIG_PRESSES:
           state = kConfig;
           break;
 
