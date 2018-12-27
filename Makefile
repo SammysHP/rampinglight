@@ -35,6 +35,7 @@ CFLAGS += -std=gnu99
 #CFLAGS += -Wa,-adhlns=$(<:%.c=$(OBJDIR)/%.lst)
 #CFLAGS += -flto
 CFLAGS += -Wno-int-to-pointer-cast
+#CFLAGS += -save-temps
 
 #LDFLAGS =
 
