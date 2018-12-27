@@ -509,9 +509,15 @@ int main(void) {
           // that the flashlight is still turned on but the battery is dying.
           // TODO If free space in flash, disable as many components as possible
           blink(3, FLASH_TIME/2);
-          delay_s();
-          delay_s();
-          delay_s();
+          uint8_t delay_seconds;
+          asm volatile (
+            "ldi %[i], 5"    "\n\t"
+            "0:"             "\n\t"
+            "rcall  delay_s" "\n\t"
+            "dec    %[i]"    "\n\t"
+            "brne   0b"      "\n\t"
+              : [i] "=&r" (delay_seconds)
+          );
         }
       } else if (voltage <= BAT_LOW) {
         blink(16, FLICKER_TIME);
