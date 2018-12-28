@@ -2,8 +2,8 @@
 
 MCU = attiny13
 F_CPU = 4800000
-#LFUSE = 0x6a
-#HFUSE = 0xff
+#LFUSE = 0x75
+#HFUSE = 0xFF
 
 TARGET = rampinglight
 SRC = $(TARGET).c
@@ -122,7 +122,7 @@ eeprom: $(TARGET).eep
 
 
 readfuses:
-	$(AVRDUDE) $(AVRDUDE_FLAGS) -U lfuse:r:-:i -U hfuse:r:-:i
+	$(AVRDUDE) $(AVRDUDE_FLAGS) -U lfuse:r:-:h -U hfuse:r:-:h
 
 
 #writefuses:
@@ -137,9 +137,9 @@ writefuses: $(TARGET).elf
 	$(if $(word 3,$(FUSES)),-U efuse:w:0x$(word 3,$(FUSES)):m)
 
 
-printfuses: FUSES = $(shell $(OBJDUMP) -s --section=.fuse $(TARGET).elf | tail -1 | awk '{print substr($$2,1,2),substr($$2,3,2),substr($$2,5,2)}')
+printfuses: FUSES = $(shell $(OBJDUMP) -s --section=.fuse $(TARGET).elf | tail -1 | awk '{printf "l:0x%s h:0x%s e:0x%s",substr($$2,1,2),substr($$2,3,2),substr($$2,5,2)}')
 printfuses: $(TARGET).elf
-	@echo 'FUSES = $(FUSES)'
+	@echo '$(FUSES)'
 
 
 %.hex: %.elf
@@ -175,6 +175,8 @@ clean:
 	$(REMOVE) "$(TARGET).eep"
 	$(REMOVE) "$(TARGET).elf"
 	$(REMOVE) "$(TARGET).lss"
+	$(REMOVE) "$(TARGET).i"
+	$(REMOVE) "$(TARGET).s"
 	$(REMOVEDIR) "$(OBJDIR)"
 
 

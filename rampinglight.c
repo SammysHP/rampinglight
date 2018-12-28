@@ -58,6 +58,14 @@
 #define CONFIG_PRESSES 10
 
 /**
+ * Fuses for ATtiny13
+ */
+FUSES = {
+    .low = (FUSE_SPIEN & FUSE_SUT1 & FUSE_CKSEL1),
+    .high = HFUSE_DEFAULT,
+};
+
+/**
  * States of the state machine.
  */
 enum State {
