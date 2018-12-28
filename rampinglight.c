@@ -171,7 +171,8 @@ void blink(uint8_t count, const uint8_t speed) {
 }
 
 /**
- * Internal function to erase or dirty write a byte to EEPROM.
+ * Internal function to erase or dirty write a byte to EEPROM. This enables
+ * interrupts to save 2 bytes.
  *
  * @param address Address in EEPROM
  * @param data    Data that should be written to address
@@ -182,7 +183,7 @@ static void eeprom_erase_or_write_byte(const uint8_t address, const uint8_t data
   EECR = eecr;
   EEARL = address;
   EEDR = data;
-  ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
+  ATOMIC_BLOCK(ATOMIC_FORCEON) {  // assume that interrupts are always enabled at this point
     EECR |= (1<<EEMPE);
     EECR |= (1<<EEPE);
   }
