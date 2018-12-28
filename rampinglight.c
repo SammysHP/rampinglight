@@ -414,11 +414,6 @@ int main(void) {
   } else {  // User has tapped the power button
     ++fast_presses;
 
-    // TODO Optimize overflow handling
-    if (fast_presses > 10) {
-      fast_presses = 10;
-    }
-
     // Input handling
     switch (fast_presses) {
       case TURBO_PRESSES:
@@ -439,6 +434,7 @@ int main(void) {
 #endif  // ifdef BEACON
 
       case CONFIG_PRESSES:
+        --fast_presses;
         state = kConfig;
         break;
 
