@@ -365,11 +365,6 @@ int main(void) {
   } else {  // User has tapped the power button
     ++fast_presses;
 
-    // TODO Optimize overflow handling
-    if (fast_presses > 10) {
-      fast_presses = 10;
-    }
-
     // Input handling
     if (options.fixed_mode) {
       switch (fast_presses) {
@@ -380,6 +375,7 @@ int main(void) {
 #endif  // ifdef BATTCHECK
 
         case CONFIG_PRESSES:
+          --fast_presses;
           state = kConfig;
           break;
 
@@ -402,6 +398,7 @@ int main(void) {
 #endif  // ifdef BATTCHECK
 
         case CONFIG_PRESSES:
+          --fast_presses;
           state = kConfig;
           break;
 
