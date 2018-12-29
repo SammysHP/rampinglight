@@ -17,6 +17,7 @@
 
 // Optional features
 #define BATTCHECK
+#define STROBE
 #define LOW_VOLTAGE_PROTECTION
 
 #include <avr/io.h>
@@ -55,6 +56,7 @@
 
 #define TURBO_PRESSES 2
 #define BATTCHECK_PRESSES FIXED_SIZE+1
+#define STROBE_PRESSES FIXED_SIZE+2
 #define CONFIG_PRESSES 10
 
 /**
@@ -78,6 +80,9 @@ enum State {
 #ifdef BATTCHECK
   kBattcheck,  // Battery level
 #endif  // ifdef BATTCHECK
+#ifdef STROBE
+  kStrobe,     // Strobe
+#endif  // ifdef STROBE
 };
 
 /**
@@ -398,6 +403,12 @@ int main(void) {
           break;
 #endif  // ifdef BATTCHECK
 
+#ifdef STROBE
+        case STROBE_PRESSES:
+          state = kStrobe;
+          break;
+#endif  // ifdef STROBE
+
         case CONFIG_PRESSES:
           state = kConfig;
           break;
@@ -419,6 +430,12 @@ int main(void) {
           state = kBattcheck;
           break;
 #endif  // ifdef BATTCHECK
+
+#ifdef STROBE
+        case STROBE_PRESSES:
+          state = kStrobe;
+          break;
+#endif  // ifdef STROBE
 
         case CONFIG_PRESSES:
           state = kConfig;
@@ -509,6 +526,13 @@ int main(void) {
         delay_s();
         break;
 #endif  // ifdef BATTCHECK
+
+#ifdef STROBE
+      case kStrobe:
+        set_pwm(TURBO_PWM);
+        blink(1, 4);
+        break;
+#endif  // ifdef STROBE
 
       case kConfig:
         disable_output();
