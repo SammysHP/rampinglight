@@ -403,7 +403,10 @@ int main(void) {
           break;
 
         default:
-          output = (output % FIXED_SIZE) + 1;
+          output = (output % FIXED_SIZE) + (options.start_high ? -1 : 1);
+          if (!output) {
+            output = FIXED_SIZE;
+          }
           state = kFixed;
           save_output();
           break;
