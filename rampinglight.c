@@ -319,6 +319,7 @@ ISR(TIM0_OVF_vect) {
     ++ticks;
   }
 
+  // This will be called multiple times, but we don't care
   if (ticks == 4) {  // ~440 ms
     fast_presses = 0;
   }
@@ -529,6 +530,9 @@ int main(void) {
     }
 
 #ifdef LOW_VOLTAGE_PROTECTION
+    // This condition is true for about 110 ms. If we miss this window, we have
+    // to wait for the next interval. If the condition is false, it might be
+    // checked/executed multiple times in the same interval.
     if ((ticks & 0x7F) == 14) {  // Every ~14 s starting after ~1.5 s
       // TODO Take several measurements for noise filtering?
       const uint8_t voltage = battery_voltage();
