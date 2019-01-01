@@ -285,7 +285,7 @@ void restore_state(void) {
  */
 void toggle_option(const uint8_t new_opts, const uint8_t flashes) {
   blink(flashes, FLASH_TIME);
-  uint8_t old_options = options.raw;
+  const uint8_t old_options = options.raw;
   options.raw = new_opts;
   save_options();
   blink(24, FLICKER_TIME);
@@ -518,11 +518,10 @@ int main(void) {
         state = kDefault;  // Exit config mode after one iteration
 
         // This assumes that the bit field starts at the least significant bit
-        uint8_t opts = options.raw;
-        toggle_option(opts ^ 0b00000001, 1);  // Fixed mode
-        toggle_option(opts ^ 0b00000010, 2);  // Mode memory
-        toggle_option(opts ^ 0b00000100, 3);  // Freeze on high
-        toggle_option(opts ^ 0b00001000, 4);  // Start with high
+        toggle_option(options.raw ^ 0b00000001, 1);  // Fixed mode
+        toggle_option(options.raw ^ 0b00000010, 2);  // Mode memory
+        toggle_option(options.raw ^ 0b00000100, 3);  // Freeze on high
+        toggle_option(options.raw ^ 0b00001000, 4);  // Start with high
 
         set_level(output);  // Restore previous level
 
