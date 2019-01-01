@@ -97,17 +97,19 @@ const uint8_t __flash ramp_values[] = { RAMP_VALUES };
 const uint8_t __flash fixed_values[] = { FIXED_VALUES };
 const uint8_t __flash voltage_table[] = { 0, BAT_25P, BAT_50P, BAT_75P };
 
+// Non-initialized variables
 uint8_t cold_boot_detect[CBD_BYTES] __attribute__((section(".noinit")));
-enum State state __attribute__((section(".noinit")));
-uint8_t output __attribute__((section(".noinit")));
-uint8_t fast_presses __attribute__((section(".noinit")));
-uint8_t ramping_up __attribute__((section(".noinit")));
+register enum State state asm("r2");
+register uint8_t output asm("r3");
+register uint8_t fast_presses asm("r4");
+register uint8_t ramping_up asm("r5");
 
-register Options options asm("r7");
-register uint8_t output_eeprom asm("r6");
-register uint8_t output_eeprom_pos asm("r5");
-register uint8_t microticks asm("r4");
-register uint8_t ticks asm("r3");
+// Variables that will be initialized on start
+register Options options asm("r6");
+register uint8_t output_eeprom asm("r7");
+register uint8_t output_eeprom_pos asm("r8");
+register uint8_t microticks asm("r9");
+register uint8_t ticks asm("r10");
 
 /**
  * Busy wait delay with 10 ms resolution. This function allows to choose the
