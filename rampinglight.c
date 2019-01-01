@@ -102,6 +102,7 @@ enum State state __attribute__((section(".noinit")));
 uint8_t output __attribute__((section(".noinit")));
 uint8_t fast_presses __attribute__((section(".noinit")));
 uint8_t ramping_up __attribute__((section(".noinit")));
+uint8_t lvp_overflow __attribute__((section(".noinit")));
 
 register Options options asm("r7");
 register uint8_t output_eeprom asm("r6");
@@ -317,10 +318,14 @@ static uint8_t battery_voltage(void) {
 ISR(TIM0_OVF_vect) {
   if (!--microticks) {
     ++ticks;
-  }
 
-  if (ticks == 4) {  // ~440 ms
-    fast_presses = 0;
+    if (ticks == 4) {  // ~440 ms
+      fast_presses = 0;
+    }
+
+    if ((ticks & 0x7F) == 14) {  // Every ~14 s starting after ~1.5 s
+      lvp_overflow = 1;
+    }
   }
 }
 
@@ -330,6 +335,7 @@ ISR(TIM0_OVF_vect) {
 int main(void) {
   microticks = 0;
   ticks = 0;
+  lvp_overflow = 0;
 
   // Fast PWM, system clock with /8 prescaler
   // Frequency will be F_CPU/(8*256) = 2343.75 Hz
@@ -529,7 +535,8 @@ int main(void) {
     }
 
 #ifdef LOW_VOLTAGE_PROTECTION
-    if ((ticks & 0x7F) == 14) {  // Every ~14 s starting after ~1.5 s
+    if (lvp_overflow) {
+      lvp_overflow = 0;
       // TODO Take several measurements for noise filtering?
       const uint8_t voltage = battery_voltage();
       if (voltage <= BAT_CRIT) {
