@@ -411,6 +411,7 @@ int main(void) {
 #ifdef STROBE
       case STROBE_PRESSES:
         state = kStrobe;
+        output = 1;  // First strobe pattern
         break;
 #endif  // ifdef STROBE
 
@@ -435,6 +436,12 @@ int main(void) {
             output = (output % FIXED_SIZE) + 1;
             save_output();
             break;
+
+#ifdef STROBE
+          case kStrobe:
+            output = (output % 2) + 1;
+            break;
+#endif  // ifdef STROBE
 
           default:
             state = kDefault;
@@ -517,10 +524,17 @@ int main(void) {
 #ifdef STROBE
       case kStrobe:
         set_pwm(TURBO_PWM);
-        blink(2, 3);
-        set_level(1);
-        delay_s();
-        delay_s();
+        if (output == 1) {
+          blink(2, 3);
+          set_level(1);
+          delay_s();
+          delay_s();
+        } else {
+          enable_output();
+          delay_10ms(2);
+          disable_output();
+          delay_10ms(4);
+        }
         break;
 #endif  // ifdef STROBE
 
