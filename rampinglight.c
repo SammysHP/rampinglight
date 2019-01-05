@@ -392,6 +392,11 @@ int main(void) {
 
     // Input handling
     switch (fast_presses) {
+      case TURBO_PRESSES:
+        if (options.fixed_mode) goto event_handler_default;
+        state = kTurbo;
+        break;
+
 #ifdef BATTCHECK
       case BATTCHECK_PRESSES:
         state = kBattcheck;
@@ -403,31 +408,26 @@ int main(void) {
         break;
 
       default:
-        if (options.fixed_mode) {
-          output = (output % FIXED_SIZE) + 1;
-          state = kFixed;
-          save_output();
-          break;
-        } else {
-          switch (fast_presses) {
-            case TURBO_PRESSES:
-              state = kTurbo;
-              break;
+      event_handler_default:
+        switch (state) {
+          case kRamping:
+          case kTurbo:
+            state = kFrozen;
+            save_output();
+            break;
 
-            default:
-              switch (state) {
-                case kRamping:
-                  state = kFrozen;
-                  save_output();
-                  break;
+          case kFrozen:
+            state = kRamping;
+            break;
 
-                default:
-                  state = kRamping;
-                  break;
-              }
-              break;
-          }
-          break;
+          case kFixed:
+            output = (output % FIXED_SIZE) + 1;
+            save_output();
+            break;
+
+          default:
+            state = kDefault;
+            break;
         }
         break;
     }
