@@ -120,6 +120,7 @@ register uint8_t output_eeprom asm("r7");
 register uint8_t output_eeprom_pos asm("r8");
 register uint8_t microticks asm("r9");
 register uint8_t ticks asm("r10");
+uint8_t lvp_overflow __attribute__((section(".noinit")));
 
 /**
  * Busy wait delay with 10 ms resolution. This function allows to choose the
@@ -329,11 +330,16 @@ static uint8_t battery_voltage(void) {
 ISR(TIM0_OVF_vect) {
   if (!--microticks) {
     ++ticks;
-  }
 
-  // This will be called multiple times, but we don't care
-  if (ticks == 4) {  // ~440 ms
-    fast_presses = 0;
+    if (ticks == 4) {  // ~440 ms
+      fast_presses = 0;
+    }
+
+#ifdef LOW_VOLTAGE_PROTECTION
+    if ((ticks & 0x7F) == 14) {  // Every ~14 s starting after ~1.5 s
+      lvp_overflow = 1;
+    }
+#endif  // ifdef LOW_VOLTAGE_PROTECTION
   }
 }
 
@@ -343,6 +349,7 @@ ISR(TIM0_OVF_vect) {
 int main(void) {
   microticks = 0;
   ticks = 0;
+  lvp_overflow = 0;
 
   // Fast PWM, system clock with /8 prescaler
   // Frequency will be F_CPU/(8*256) = 2343.75 Hz
@@ -569,10 +576,8 @@ int main(void) {
     }
 
 #ifdef LOW_VOLTAGE_PROTECTION
-    // This condition is true for about 110 ms. If we miss this window, we have
-    // to wait for the next interval. If the condition is false, it might be
-    // checked/executed multiple times in the same interval.
-    if ((ticks & 0x7F) == 14) {  // Every ~14 s starting after ~1.5 s
+    if (lvp_overflow) {
+      lvp_overflow = 0;
       // TODO Take several measurements for noise filtering?
       const uint8_t voltage = battery_voltage();
       if (voltage <= BAT_CRIT) {
