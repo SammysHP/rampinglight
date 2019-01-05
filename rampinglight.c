@@ -46,7 +46,7 @@
 #define FIXED_SIZE sizeof(fixed_values)
 #define FIXED_VALUES 5,35,118,255
 
-#define CBD_BYTES 4
+#define CBD_BYTES 8
 #define CBD_PATTERN 0xAA
 
 #define EEPROM_SIZE 64
