@@ -120,7 +120,7 @@ register uint8_t output_eeprom asm("r7");
 register uint8_t output_eeprom_pos asm("r8");
 register uint8_t microticks asm("r9");
 register uint8_t ticks asm("r10");
-uint8_t lvp_overflow __attribute__((section(".noinit")));
+register uint8_t lvp_overflow asm("r11");
 
 /**
  * Busy wait delay with 10 ms resolution. This function allows to choose the
@@ -542,6 +542,7 @@ int main(void) {
           case STROBE_PATTERN_BEACON:
             blink(2, 3);
             set_pwm(BEACON_PWM);
+            enable_output();
             delay_s();
             delay_s();
             break;
@@ -577,7 +578,6 @@ int main(void) {
 
 #ifdef LOW_VOLTAGE_PROTECTION
     if (lvp_overflow) {
-      lvp_overflow = 0;
       // TODO Take several measurements for noise filtering?
       const uint8_t voltage = battery_voltage();
       if (voltage <= BAT_CRIT) {
@@ -599,6 +599,7 @@ int main(void) {
         blink(16, FLICKER_TIME);
         enable_output();
       }
+      lvp_overflow = 0;
     }
 #endif  // ifdef LOW_VOLTAGE_PROTECTION
   }
