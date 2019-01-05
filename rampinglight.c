@@ -391,53 +391,45 @@ int main(void) {
     }
 
     // Input handling
-    if (options.fixed_mode) {
-      switch (fast_presses) {
+    switch (fast_presses) {
 #ifdef BATTCHECK
-        case BATTCHECK_PRESSES:
-          state = kBattcheck;
-          break;
+      case BATTCHECK_PRESSES:
+        state = kBattcheck;
+        break;
 #endif  // ifdef BATTCHECK
 
-        case CONFIG_PRESSES:
-          state = kConfig;
-          break;
+      case CONFIG_PRESSES:
+        state = kConfig;
+        break;
 
-        default:
+      default:
+        if (options.fixed_mode) {
           output = (output % FIXED_SIZE) + 1;
           state = kFixed;
           save_output();
           break;
-      }
-    } else {
-      switch (fast_presses) {
-        case TURBO_PRESSES:
-          state = kTurbo;
-          break;
-
-#ifdef BATTCHECK
-        case BATTCHECK_PRESSES:
-          state = kBattcheck;
-          break;
-#endif  // ifdef BATTCHECK
-
-        case CONFIG_PRESSES:
-          state = kConfig;
-          break;
-
-        default:
-          switch (state) {
-            case kRamping:
-              state = kFrozen;
-              save_output();
+        } else {
+          switch (fast_presses) {
+            case TURBO_PRESSES:
+              state = kTurbo;
               break;
 
             default:
-              state = kRamping;
+              switch (state) {
+                case kRamping:
+                  state = kFrozen;
+                  save_output();
+                  break;
+
+                default:
+                  state = kRamping;
+                  break;
+              }
               break;
           }
           break;
-      }
+        }
+        break;
     }
   }
 
