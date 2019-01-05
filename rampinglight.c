@@ -43,6 +43,7 @@
 #define RAMP_SIZE sizeof(ramp_values)
 #define RAMP_VALUES 5,5,5,5,5,6,6,6,6,7,7,8,8,9,10,11,12,13,14,15,17,18,20,22,23,25,28,30,32,35,38,41,44,47,51,55,59,63,67,71,76,81,86,92,97,103,109,116,122,129,136,144,151,159,167,176,185,194,203,213,223,233,244,255
 #define TURBO_PWM 255
+#define BEACON_PWM 5
 
 #define FIXED_SIZE sizeof(fixed_values)
 #define FIXED_VALUES 5,35,118,255
@@ -58,6 +59,10 @@
 #define BATTCHECK_PRESSES FIXED_SIZE+1
 #define STROBE_PRESSES FIXED_SIZE+2
 #define CONFIG_PRESSES 10
+
+#define STROBE_PATTERN_BEACON 1
+#define STROBE_PATTERN_FAST   2
+#define STROBE_PATTERN_SIZE   STROBE_PATTERN_FAST
 
 /**
  * Fuses for ATtiny13
@@ -411,7 +416,7 @@ int main(void) {
 #ifdef STROBE
       case STROBE_PRESSES:
         state = kStrobe;
-        output = 1;  // First strobe pattern
+        output = STROBE_PATTERN_BEACON;
         break;
 #endif  // ifdef STROBE
 
@@ -439,7 +444,7 @@ int main(void) {
 
 #ifdef STROBE
           case kStrobe:
-            output = (output % 2) + 1;
+            output = (output % STROBE_PATTERN_SIZE) + 1;
             break;
 #endif  // ifdef STROBE
 
@@ -524,16 +529,21 @@ int main(void) {
 #ifdef STROBE
       case kStrobe:
         set_pwm(TURBO_PWM);
-        if (output == 1) {
-          blink(2, 3);
-          set_level(1);
-          delay_s();
-          delay_s();
-        } else {
-          enable_output();
-          delay_10ms(2);
-          disable_output();
-          delay_10ms(4);
+        switch (output) {
+          case STROBE_PATTERN_BEACON:
+            blink(2, 3);
+            set_pwm(BEACON_PWM);
+            delay_s();
+            delay_s();
+            break;
+
+          case STROBE_PATTERN_FAST:
+          default:
+            enable_output();
+            delay_10ms(2);
+            disable_output();
+            delay_10ms(4);
+            break;
         }
         break;
 #endif  // ifdef STROBE
