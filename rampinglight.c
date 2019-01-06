@@ -109,7 +109,7 @@ const uint8_t __flash voltage_table[] = { 0, BAT_25P, BAT_50P, BAT_75P };
 
 // Non-initialized variables
 uint8_t cold_boot_detect[CBD_BYTES] __attribute__((section(".noinit")));
-register enum State state asm("r2");
+volatile enum State state __attribute__((section(".noinit")));
 register uint8_t output asm("r3");
 register uint8_t fast_presses asm("r4");
 register uint8_t ramping_up asm("r5");
