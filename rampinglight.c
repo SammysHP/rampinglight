@@ -31,7 +31,7 @@
 
 #define FLASH_TIME 20
 #define FLICKER_TIME 2
-#define FLASH_PWM 40  // TODO Using TURBO_PWM saves 6 bytes due to optimization
+#define FLASH_PWM 40
 
 #define BAT_LOW  141  // ~3.2 V
 #define BAT_CRIT 120  // ~2.7 V
@@ -55,10 +55,10 @@
 #define EEPROM_OPTIONS (EEPROM_SIZE-1)
 #define EEPROM_OUTPUT_WL_BYTES 16
 
-#define TURBO_PRESSES 2
+#define TURBO_PRESSES     2
 #define BATTCHECK_PRESSES FIXED_SIZE+1
-#define BEACON_PRESSES FIXED_SIZE+2
-#define CONFIG_PRESSES 10
+#define BEACON_PRESSES    FIXED_SIZE+2
+#define CONFIG_PRESSES    10
 
 /**
  * Fuses for ATtiny13
@@ -72,17 +72,17 @@ FUSES = {
  * States of the state machine.
  */
 enum State {
-  kDefault,    // Special decision state
-  kRamping,    // Ramping up and down
-  kFrozen,     // Frozen ramping level
-  kTurbo,      // Full power
-  kFixed,      // Fixed mode
-  kConfig,     // Config menu
+  kDefault,
+  kRamping,
+  kFrozen,
+  kTurbo,
+  kFixed,
+  kConfig,
 #ifdef BATTCHECK
-  kBattcheck,  // Battery level
+  kBattcheck,
 #endif  // ifdef BATTCHECK
 #ifdef BEACON
-  kBeacon,     // Beacon
+  kBeacon,
 #endif  // ifdef BEACON
 };
 
@@ -99,6 +99,7 @@ typedef union {
   };
 } Options;
 
+// Lookup tables in flash
 const uint8_t __flash ramp_values[] = { RAMP_VALUES };
 const uint8_t __flash fixed_values[] = { FIXED_VALUES };
 const uint8_t __flash voltage_table[] = { 0, BAT_25P, BAT_50P, BAT_75P };
