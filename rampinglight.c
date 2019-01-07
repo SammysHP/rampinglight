@@ -18,6 +18,7 @@
 // Optional features
 #define BATTCHECK
 #define BEACON
+#define STROBE
 #define LOW_VOLTAGE_PROTECTION
 
 #include <avr/io.h>
@@ -84,6 +85,9 @@ enum State {
 #ifdef BEACON
   kBeacon,
 #endif  // ifdef BEACON
+#ifdef STROBE
+  kStrobe,
+#endif  // ifdef STROBE
 };
 
 /**
@@ -96,6 +100,7 @@ typedef union {
     unsigned mode_memory : 1;
     unsigned freeze_on_high : 1;
     unsigned start_high : 1;
+    unsigned strobe : 1;
   };
 } Options;
 
@@ -389,7 +394,11 @@ int main(void) {
   }
 
   if (coldboot) {  // Initialize state after the flashlight was switched off for some time
+#ifdef STROBE
+    state = options.strobe ? kStrobe : kDefault;
+#else
     state = kDefault;
+#endif  // ifdef STROBE
     fast_presses = 0;
     ramping_up = 1;
 
@@ -540,6 +549,14 @@ int main(void) {
         break;
 #endif  // ifdef BEACON
 
+#ifdef STROBE
+      case kStrobe:
+        set_pwm(TURBO_PWM);
+        blink(8,2);
+        blink(8,4);
+        break;
+#endif  // ifdef STROBE
+
       case kConfig:
         disable_output();
         set_pwm(FLASH_PWM);
@@ -548,10 +565,14 @@ int main(void) {
         state = kDefault;  // Exit config mode after one iteration
 
         // This assumes that the bit field starts at the least significant bit
-        toggle_option(options.raw ^ 0b00000001, 1);  // Fixed mode
-        toggle_option(options.raw ^ 0b00000010, 2);  // Mode memory
-        toggle_option(options.raw ^ 0b00000100, 3);  // Freeze on high
-        toggle_option(options.raw ^ 0b00001000, 4);  // Start with high
+        uint8_t flashes = 1;  // Removed by compile time calculation
+#ifdef STROBE
+        toggle_option(options.raw ^ 0b00010000, flashes++);  // Start with strobe
+#endif  // ifdef STROBE
+        toggle_option(options.raw ^ 0b00000001, flashes++);  // Fixed mode
+        toggle_option(options.raw ^ 0b00000010, flashes++);  // Mode memory
+        toggle_option(options.raw ^ 0b00000100, flashes++);  // Freeze on high
+        toggle_option(options.raw ^ 0b00001000, flashes++);  // Start with high
 
         set_level(output);  // Restore previous level
 
