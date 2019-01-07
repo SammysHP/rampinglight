@@ -358,10 +358,10 @@ int main(void) {
   TCCR0B = (1 << CS01);
 
   // Enable timer overflow interrupt
-  TIMSK0 |= (1 << TOIE0);  // TODO Optimization: no or
+  TIMSK0 = (1 << TOIE0);
 
   // Set PWM pin to output
-  DDRB |= (1 << PWM_PIN);  // TODO Optimization: no or
+  DDRB |= (1 << PWM_PIN);
 
 #if defined(LOW_VOLTAGE_PROTECTION) || defined(BATTCHECK)
   ADMUX =
