@@ -452,7 +452,12 @@ int main(void) {
             break;
 
           case kFixed:
-            output = (output % FIXED_SIZE) + 1;
+            output += options.start_high ? -1 : 1;
+            if (output > FIXED_SIZE) {
+              output = 1;
+            } else if (!output) {
+              output = FIXED_SIZE;
+            }
             save_output();
             break;
 
