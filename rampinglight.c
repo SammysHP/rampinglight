@@ -490,12 +490,11 @@ int main(void) {
         output += ramping_up ? 1 : -1;
         set_level(output);
 
-        if (options.freeze_on_high && output == RAMP_SIZE) {
-          state = kFrozen;
-          break;
-        }
-
         if (output == RAMP_SIZE) {
+          if (options.freeze_on_high) {
+            state = kFrozen;
+            break;
+          }
           delay_s();
         } else {
           delay_10ms(RAMP_TIME*100/RAMP_SIZE);
