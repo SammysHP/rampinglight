@@ -180,7 +180,7 @@ void set_level(const uint8_t level) {
     disable_output();
   } else {
     if (options.fixed_mode) {
-      set_pwm(fixed_values[level - 1]);
+      set_pwm(fixed_values[options.start_high ? FIXED_SIZE - level : level - 1]);
     } else {
       set_pwm(ramp_values[level - 1]);
     }
@@ -405,8 +405,8 @@ int main(void) {
     if (options.mode_memory && output_eeprom) {
       output = output_eeprom;
     } else {
-      if (options.start_high) {
-        output = options.fixed_mode ? FIXED_SIZE : RAMP_SIZE;
+      if (!options.fixed_mode && options.start_high) {
+        output = RAMP_SIZE;
       } else {
         output = 1;
       }
