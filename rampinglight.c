@@ -19,7 +19,7 @@
 #define BATTCHECK
 #define BEACON
 #define STROBE
-#define LOW_VOLTAGE_PROTECTION
+/* #define LOW_VOLTAGE_PROTECTION */
 
 #include <avr/io.h>
 #include <util/delay.h>
@@ -104,13 +104,19 @@ typedef union {
   };
 } Options;
 
+typedef struct {
+  uint8_t magic_byte;
+  enum State state;
+  uint8_t output;
+} StateSnapshot;
+
 // Lookup tables in flash
 const uint8_t __flash ramp_values[] = { RAMP_VALUES };
 const uint8_t __flash fixed_values[] = { FIXED_VALUES };
 const uint8_t __flash voltage_table[] = { 0, BAT_25P, BAT_50P, BAT_75P };
 
 // Variables that are not initialized and survive a restart for a short time
-uint8_t cold_boot_detect[CBD_BYTES] __attribute__((section(".noinit")));
+StateSnapshot cold_boot_detect[CBD_BYTES] __attribute__((section(".noinit")));
 register enum State state asm("r2");
 register uint8_t output asm("r3");
 register uint8_t fast_presses asm("r4");
@@ -324,6 +330,14 @@ static uint8_t battery_voltage(void) {
 }
 #endif  // if defined(LOW_VOLTAGE_PROTECTION) || defined(BATTCHECK)
 
+void backup_state(void) {
+  for (int i = 0; i < CBD_BYTES; ++i) {
+    cold_boot_detect[i].magic_byte = CBD_PATTERN;
+    cold_boot_detect[i].state      = state;
+    cold_boot_detect[i].output     = output;
+  }
+}
+
 /**
  * Timer0 overflow interrupt handler.
  * Frequency will be F_CPU/(8*256) = 2343.75 Hz.
@@ -386,11 +400,13 @@ int main(void) {
 
   // Cold boot detection
   uint8_t coldboot = 0;
-  for (int i = CBD_BYTES - 1; i >= 0; --i) {
-    if (cold_boot_detect[i] != CBD_PATTERN) {
+  for (int i = 1; i < CBD_BYTES; ++i) {
+    if (cold_boot_detect[i].magic_byte != CBD_PATTERN ||
+        cold_boot_detect[i].state != cold_boot_detect[i-1].state ||
+        cold_boot_detect[i].output != cold_boot_detect[i-1].output) {
       coldboot = 1;
+      break;
     }
-    cold_boot_detect[i] = CBD_PATTERN;
   }
 
   if (coldboot) {  // Initialize state after the flashlight was switched off for some time
@@ -413,6 +429,9 @@ int main(void) {
     }
   } else {  // User has tapped the power button
     ++fast_presses;
+
+    state  = cold_boot_detect[0].state;
+    output = cold_boot_detect[0].output;
 
     // Input handling
     switch (fast_presses) {
@@ -464,6 +483,7 @@ int main(void) {
     }
   }
 
+  backup_state();
   set_level(output);
 
   while (1) {
@@ -480,6 +500,7 @@ int main(void) {
             state = kRamping;
           }
         }
+        backup_state();
         continue;  // Skip main loop cycle and continue with correct mode
 
       case kRamping:
@@ -501,6 +522,7 @@ int main(void) {
           delay_10ms(RAMP_TIME*100/RAMP_SIZE);
         }
 
+        backup_state();
         break;
 
       case kFrozen:
@@ -559,6 +581,7 @@ int main(void) {
         delay_s();
 
         state = kDefault;  // Exit config mode after one iteration
+        backup_state();
 
         // This assumes that the bit field starts at the least significant bit
         uint8_t flashes = 1;  // Removed by compile time calculation
