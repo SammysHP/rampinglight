@@ -8,10 +8,12 @@ This firmware is compatible with the driver commonly found in Convoy flashlights
 - Two modes of operation: ramping and fixed levels
 - Turbo mode: immediately switch to maximum output
 - Battery check: one to four flashes
-- Low voltage protection: flicker every 15 seconds if the voltage is low and short flashes if the voltage is critical
+- Low voltage protection: flicker every 15 seconds if the voltage is low and turn off if the voltage is critical
 - Mode memory: start with last frozen ramp value or with last fixed level (off-time memory)
 - Stop at high: in ramping UI, stop if ramping reaches maximum output
-- Start at high: after the flashlight was off, start with the highest output
+- Start at high: after the flashlight was off, start with the highest output (and go from high to low)
+- Beacon mode: low background light with regular flashes
+- Tactical strobe: if enabled, always start with fast strobe mode
 - Runtime configuration: options can be toggled via configuration menu
 
 
@@ -21,13 +23,14 @@ This firmware is compatible with the driver commonly found in Convoy flashlights
 
 1. Turn the light on
 1. Shortly tap the switch 10+ times, the light will turn off
-1. The light starts flashing from one to four, each group followed by a short burst of flashes. Turn off the light during the burst to toggle the option. Options are:
+1. The light starts counting via flashes, each group followed by a short burst of flashes. Turn off the light during the burst to toggle the option. Options are:
+    1. Start with strobe
     1. Ramping or fixed levels
     1. Mode memory on or off
     1. Freeze on high
     1. Start on high
 
-The default is: ramping UI, no mode memory, do not freeze on high, start on low
+The default is: no strobe, ramping UI, no mode memory, do not freeze on high, start on low
 
 
 ### Ramping UI
@@ -59,6 +62,18 @@ Tap five times to enter battery check mode. The flashlight starts blinking one t
 - 1 flashes: below 3.5 V
 
 Tap again to return to normal flashlight mode.
+
+
+### Beacon mode
+
+Tap six times to enter beacon mode. In this mode the flashlights runs at low intensity and flashes every two seconds. Tap again to return to normal flashlight mode.
+
+
+### Strobe mode
+
+If users want a strobe mode, they usually want it for defence purposes. Thus it should be possible to enter it as fast as possible.
+
+If strobe is enabled in the preferences, the flashlight always starts in a fast strobe mode. Then a single press of the power switch enters normal flashlight mode.
 
 
 ### Low voltage protection
