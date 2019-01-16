@@ -412,6 +412,8 @@ int main(void) {
       }
     }
   } else {  // User has tapped the power button
+    delay_10ms(4);  // Simple button debounce
+
     ++fast_presses;
 
     // Input handling
