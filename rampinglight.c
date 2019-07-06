@@ -78,7 +78,7 @@ enum State {
   kBeacon,
 #endif  // ifdef BEACON
 #ifdef STROBE
-  kStrobe,
+  kInitStrobe,
 #endif  // ifdef STROBE
 };
 
@@ -384,7 +384,7 @@ int main(void) {
 
   if (coldboot) {  // Initialize state after the flashlight was switched off for some time
 #ifdef STROBE
-    state = options.start_strobe ? kStrobe : kFixed;
+    state = options.start_strobe ? kInitStrobe : kFixed;
 #else
     state = kFixed;
 #endif  // ifdef STROBE
@@ -470,7 +470,7 @@ int main(void) {
 #endif  // ifdef BEACON
 
 #ifdef STROBE
-      case kStrobe:
+      case kInitStrobe:
         set_pwm(TURBO_PWM);
         blink(8,2);
         blink(8,4);
