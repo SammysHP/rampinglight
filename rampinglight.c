@@ -40,14 +40,11 @@
 #define BAT_50P  161  // ~3.8 V
 #define BAT_25P  147  // ~3.5 V
 
-#define RAMP_TIME 3
 #define RAMP_SIZE sizeof(ramp_values)
-#define RAMP_VALUES 5,5,5,5,5,6,6,6,6,7,7,8,8,9,10,11,12,13,14,15,17,18,20,22,23,25,28,30,32,35,38,41,44,47,51,55,59,63,67,71,76,81,86,92,97,103,109,116,122,129,136,144,151,159,167,176,185,194,203,213,223,233,244,255
+#define RAMP_VALUES 5,35,118,255
+// #define RAMP_VALUES 5,5,5,5,5,6,6,6,6,7,7,8,8,9,10,11,12,13,14,15,17,18,20,22,23,25,28,30,32,35,38,41,44,47,51,55,59,63,67,71,76,81,86,92,97,103,109,116,122,129,136,144,151,159,167,176,185,194,203,213,223,233,244,255
 #define TURBO_PWM 255
 #define BEACON_PWM 5
-
-#define FIXED_SIZE sizeof(fixed_values)
-#define FIXED_VALUES 5,35,118,255
 
 #define CBD_BYTES 8
 #define CBD_PATTERN 0xAA
@@ -56,9 +53,8 @@
 #define EEPROM_OPTIONS (EEPROM_SIZE-1)
 #define EEPROM_OUTPUT_WL_BYTES 16
 
-#define TURBO_PRESSES     2
-#define BATTCHECK_PRESSES FIXED_SIZE+1
-#define BEACON_PRESSES    FIXED_SIZE+2
+#define BEACON_PRESSES    5
+#define BATTCHECK_PRESSES 6
 #define CONFIG_PRESSES    10
 
 /**
@@ -73,10 +69,6 @@ FUSES = {
  * States of the state machine.
  */
 enum State {
-  kDefault,
-  kRamping,
-  kFrozen,
-  kTurbo,
   kFixed,
   kConfig,
 #ifdef BATTCHECK
@@ -96,34 +88,30 @@ enum State {
 typedef union {
   uint8_t raw;
   struct {
-    unsigned fixed_mode : 1;
     unsigned mode_memory : 1;
-    unsigned freeze_on_high : 1;
     unsigned start_high : 1;
-    unsigned strobe : 1;
+    unsigned start_strobe : 1;
   };
 } Options;
 
 // Lookup tables in flash
 const uint8_t __flash ramp_values[] = { RAMP_VALUES };
-const uint8_t __flash fixed_values[] = { FIXED_VALUES };
 const uint8_t __flash voltage_table[] = { 0, BAT_25P, BAT_50P, BAT_75P };
 
 // Variables that are not initialized and survive a restart for a short time
 uint8_t cold_boot_detect[CBD_BYTES] __attribute__((section(".noinit")));
-register enum State state asm("r2");
-register uint8_t output asm("r3");
-register uint8_t fast_presses asm("r4");
-register uint8_t ramping_up asm("r5");
+register enum State state           asm("r2");
+register uint8_t output             asm("r3");
+register uint8_t fast_presses       asm("r4");
 
 // Variables that will be initialized on start
-register Options options asm("r6");
-register uint8_t output_eeprom asm("r7");
-register uint8_t output_eeprom_pos asm("r8");
-register uint8_t microticks asm("r9");
-register uint8_t ticks asm("r10");
+register Options options            asm("r5");
+register uint8_t output_eeprom      asm("r6");
+register uint8_t output_eeprom_pos  asm("r7");
+register uint8_t microticks         asm("r8");
+register uint8_t ticks              asm("r9");
 #ifdef LOW_VOLTAGE_PROTECTION
-register uint8_t run_lvp_check asm("r11");
+register uint8_t run_lvp_check      asm("r10");
 #endif  // ifdef LOW_VOLTAGE_PROTECTION
 
 /**
@@ -173,17 +161,13 @@ static void set_pwm(const uint8_t pwm) {
  * Set output to a level as defined in the ramp table. The table is indexed
  * starting from 1 so that level 0 can be used to disable the output.
  *
- * @param level Index in ramp_values or fixed_values depending on fixed_mode
+ * @param level Index in ramp_values
  */
 void set_level(const uint8_t level) {
   if (level == 0) {
     disable_output();
   } else {
-    if (options.fixed_mode) {
-      set_pwm(fixed_values[options.start_high ? FIXED_SIZE - level : level - 1]);
-    } else {
-      set_pwm(ramp_values[level - 1]);
-    }
+    set_pwm(ramp_values[options.start_high ? RAMP_SIZE - level : level - 1]);
     enable_output();
   }
 }
@@ -257,7 +241,8 @@ void save_options(void) {
 }
 
 /**
- * Write current output level to EEPROM with wear leveling.
+ * Write current output level to EEPROM with wear leveling. This will only
+ * perform an action if mode memory is enabled.
  */
 void save_output(void) {
   if (!options.mode_memory) return;
@@ -276,7 +261,8 @@ void save_output(void) {
 }
 
 /**
- * Restore state from EEPROM.
+ * Restore state from EEPROM. If mode memory is enabled, only options will be
+ * restored.
  */
 void restore_state(void) {
   options.raw = ~eeprom_read_byte((uint8_t *)EEPROM_OPTIONS);
@@ -353,8 +339,9 @@ ISR(TIM0_OVF_vect) {
 int main(void) {
   microticks = 0;
   ticks = 0;
+
 #ifdef LOW_VOLTAGE_PROTECTION
-  run_lvp_check = 0;
+  run_lvp_check = 0;  // Latched flag to run LVP check on next cycle
 #endif  // ifdef LOW_VOLTAGE_PROTECTION
 
   // Fast PWM, system clock with /8 prescaler
@@ -380,6 +367,8 @@ int main(void) {
     (1 << ADPS2) | (1 << ADPS1);  // Set /64 prescaler
 #endif  // if defined(LOW_VOLTAGE_PROTECTION) || defined(BATTCHECK)
 
+  disable_output();  // Prevents flickering if output should be disabled during initialization
+
   restore_state();
 
   sei();  // Restore state before enabling interrupts (EEPROM read)!
@@ -395,21 +384,17 @@ int main(void) {
 
   if (coldboot) {  // Initialize state after the flashlight was switched off for some time
 #ifdef STROBE
-    state = options.strobe ? kStrobe : kDefault;
+    state = options.start_strobe ? kStrobe : kFixed;
 #else
-    state = kDefault;
+    state = kFixed;
 #endif  // ifdef STROBE
+
     fast_presses = 0;
-    ramping_up = 1;
 
     if (options.mode_memory && output_eeprom) {
       output = output_eeprom;
     } else {
-      if (!options.fixed_mode && options.start_high) {
-        output = RAMP_SIZE;
-      } else {
-        output = 1;
-      }
+      output = 1;
     }
   } else {  // User has tapped the power button
     delay_10ms(4);  // Simple button debounce
@@ -418,11 +403,6 @@ int main(void) {
 
     // Input handling
     switch (fast_presses) {
-      case TURBO_PRESSES:
-        if (options.fixed_mode) goto event_handler_default;
-        state = kTurbo;
-        break;
-
 #ifdef BATTCHECK
       case BATTCHECK_PRESSES:
         state = kBattcheck;
@@ -436,86 +416,29 @@ int main(void) {
 #endif  // ifdef BEACON
 
       case CONFIG_PRESSES:
-        --fast_presses;
+        --fast_presses;  // Limit fast_presses
         state = kConfig;
         break;
 
       default:
-      event_handler_default:
         switch (state) {
-          case kRamping:
-          case kTurbo:
-            state = kFrozen;
-            save_output();
-            break;
-
-          case kFrozen:
-            state = kRamping;
-            break;
-
           case kFixed:
-            output = (output % FIXED_SIZE) + 1;
+            output = (output % RAMP_SIZE) + 1;
             save_output();
             break;
 
           default:
-            state = kDefault;
+            state = kFixed;
             break;
         }
         break;
     }
   }
 
-  set_level(output);
-
   while (1) {
     switch (state) {
-      case kDefault:
-        // This is a special state that does nothing but deciding which is the
-        // correct state for the current mode (ramping vs fixed)
-        if (options.fixed_mode) {
-          state = kFixed;
-        } else {
-          if (options.mode_memory) {
-            state = kFrozen;
-          } else {
-            state = kRamping;
-          }
-        }
-        continue;  // Skip main loop cycle and continue with correct mode
-
-      case kRamping:
-        ramping_up =
-            (ramping_up && output < RAMP_SIZE) ||
-            (!ramping_up && output == 1);
-
-        output += ramping_up ? 1 : -1;
-        set_level(output);
-
-        if (output == RAMP_SIZE) {
-          if (options.freeze_on_high) {
-            state = kFrozen;
-            break;
-          }
-          delay_s();
-        } else {
-          delay_10ms(RAMP_TIME*100/RAMP_SIZE);
-        }
-
-        break;
-
-      case kFrozen:
-        break;
-
-      case kTurbo:
-        // assert(output_is_on);
-        // Turbo mode is only entered by user action which means the driver was
-        // restarted which in turn means that the output was enabled during
-        // initialization
-        set_pwm(TURBO_PWM);
-        break;
-
       case kFixed:
+        set_level(output);
         break;
 
 #ifdef BATTCHECK
@@ -555,23 +478,21 @@ int main(void) {
 #endif  // ifdef STROBE
 
       case kConfig:
-        disable_output();
+        // Output is already turned off
         set_pwm(FLASH_PWM);
         delay_s();
 
-        state = kDefault;  // Exit config mode after one iteration
+        state = kFixed;  // Exit config mode after one iteration
 
         // This assumes that the bit field starts at the least significant bit
         uint8_t flashes = 1;  // Removed by compile time calculation
+        toggle_option(options.raw ^ 0b00000001, flashes++);  // Mode memory
+        toggle_option(options.raw ^ 0b00000010, flashes++);  // Start with high
 #ifdef STROBE
-        toggle_option(options.raw ^ 0b00010000, flashes++);  // Start with strobe
+        toggle_option(options.raw ^ 0b00000100, flashes++);  // Start with strobe
 #endif  // ifdef STROBE
-        toggle_option(options.raw ^ 0b00000001, flashes++);  // Fixed mode
-        toggle_option(options.raw ^ 0b00000010, flashes++);  // Mode memory
-        toggle_option(options.raw ^ 0b00000100, flashes++);  // Freeze on high
-        toggle_option(options.raw ^ 0b00001000, flashes++);  // Start with high
 
-        set_level(output);  // Restore previous level
+        // No need to restore ouput, default state will do this for us
 
         break;
     }
