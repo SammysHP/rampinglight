@@ -546,8 +546,8 @@ int main(void) {
 #ifdef STROBE
       case kStrobe:
         set_pwm(TURBO_PWM);
-        blink(8,2);
-        blink(8,4);
+        blink(4,2);
+        blink(4,3);
         break;
 #endif  // ifdef STROBE
 
