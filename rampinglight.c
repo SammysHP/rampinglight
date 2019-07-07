@@ -101,6 +101,7 @@ typedef union {
     unsigned freeze_on_high : 1;
     unsigned start_high : 1;
     unsigned strobe : 1;
+    unsigned stealth_beacon : 1;
   };
 } Options;
 
@@ -540,8 +541,10 @@ int main(void) {
       case kBeacon:
         set_pwm(TURBO_PWM);
         blink(2, 3);
-        set_pwm(BEACON_PWM);
-        enable_output();
+        if (!options.stealth_beacon) {
+          set_pwm(BEACON_PWM);
+          enable_output();
+        }
         delay_s();
         delay_s();
         break;
@@ -570,6 +573,7 @@ int main(void) {
         toggle_option(options.raw ^ 0b00000010, flashes++);  // Mode memory
         toggle_option(options.raw ^ 0b00000100, flashes++);  // Freeze on high
         toggle_option(options.raw ^ 0b00001000, flashes++);  // Start with high
+        toggle_option(options.raw ^ 0b00100000, flashes++);  // Stealth beacon
 
         break;
     }

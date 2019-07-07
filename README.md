@@ -29,8 +29,9 @@ This firmware is compatible with the driver commonly found in Convoy flashlights
     1. Mode memory on or off
     1. Freeze on high
     1. Start on high
+    1. Stealth beacon mode
 
-The default is: no strobe, ramping UI, no mode memory, do not freeze on high, start on low
+The default is: no strobe, ramping UI, no mode memory, do not freeze on high, start on low, no stealth beacon
 
 
 ### Ramping UI
