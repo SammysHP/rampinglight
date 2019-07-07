@@ -171,22 +171,17 @@ static void set_pwm(const uint8_t pwm) {
 }
 
 /**
- * Set output to a level as defined in the ramp table. The table is indexed
- * starting from 1 so that level 0 can be used to disable the output.
+ * Set output to a level as defined in the ramp table.
  *
  * @param level Index in ramp_values or fixed_values depending on fixed_mode
  */
 void set_level(const uint8_t level) {
-  if (level == 0) {
-    disable_output();
+  if (options.fixed_mode) {
+    set_pwm(fixed_values[options.start_high ? FIXED_SIZE - level - 1 : level]);
   } else {
-    if (options.fixed_mode) {
-      set_pwm(fixed_values[options.start_high ? FIXED_SIZE - level : level - 1]);
-    } else {
-      set_pwm(ramp_values[level - 1]);
-    }
-    enable_output();
+    set_pwm(ramp_values[level]);
   }
+  enable_output();
 }
 
 /**
@@ -272,9 +267,7 @@ void save_output(void) {
     } while (i);
   }
 
-  // Store inverted so that an output of 0 (invalid in this code) can be used
-  // to detect unused bytes in the EEPROM (0xFF)
-  eeprom_onlywrite_byte(output_eeprom_pos, ~output);
+  eeprom_onlywrite_byte(output_eeprom_pos, output);
 }
 
 /**
@@ -287,7 +280,7 @@ void restore_state(void) {
 
   // From back to front find the first byte that is not uninitialized EEPROM
   output_eeprom_pos = EEPROM_OUTPUT_WL_BYTES - 1;
-  while (output_eeprom_pos && !(output_eeprom = ~eeprom_read_byte((uint8_t *)output_eeprom_pos))) {
+  while (output_eeprom_pos && (output_eeprom = eeprom_read_byte((uint8_t *)output_eeprom_pos)) == 0xFF) {
     --output_eeprom_pos;
   }
   if (output_eeprom_pos == EEPROM_OUTPUT_WL_BYTES - 1) {
@@ -407,13 +400,13 @@ int main(void) {
     fast_presses = 0;
     ramping_up = 1;
 
-    if (options.mode_memory && output_eeprom) {
+    if (options.mode_memory && output_eeprom != 0xFF) {
       output = output_eeprom;
     } else {
       if (!options.fixed_mode && options.start_high) {
-        output = RAMP_SIZE;
+        output = RAMP_SIZE - 1;
       } else {
-        output = 1;
+        output = 0;
       }
     }
   } else {  // User has tapped the power button
@@ -459,7 +452,7 @@ int main(void) {
             break;
 
           case kFixed:
-            output = (output % FIXED_SIZE) + 1;
+            output = (output + 1) % FIXED_SIZE;
             save_output();
             break;
 
@@ -489,13 +482,13 @@ int main(void) {
 
       case kRamping:
         ramping_up =
-            (ramping_up && output < RAMP_SIZE) ||
-            (!ramping_up && output == 1);
+            (ramping_up && output < RAMP_SIZE - 1) ||
+            (!ramping_up && output == 0);
 
         output += ramping_up ? 1 : -1;
         set_level(output);
 
-        if (output == RAMP_SIZE) {
+        if (output == RAMP_SIZE - 1) {
           if (options.freeze_on_high) {
             state = kFrozen;
             break;
