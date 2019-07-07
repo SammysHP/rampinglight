@@ -362,7 +362,8 @@ int main(void) {
 
   // Fast PWM, system clock with /8 prescaler
   // Frequency will be F_CPU/(8*256) = 2343.75 Hz
-  TCCR0A = (1 << COM0B1) | (1 << WGM01) | (1 << WGM00);
+  // COM0B1 will be set via enable_output()
+  TCCR0A = (1 << WGM01) | (1 << WGM00);
   TCCR0B = (1 << CS01);
 
   // Enable timer overflow interrupt
@@ -469,8 +470,6 @@ int main(void) {
     }
   }
 
-  set_level(output);
-
   while (1) {
     switch (state) {
       case kDefault:
@@ -508,23 +507,21 @@ int main(void) {
         break;
 
       case kFrozen:
+        set_level(output);
         break;
 
       case kTurbo:
-        // assert(output_is_on);
-        // Turbo mode is only entered by user action which means the driver was
-        // restarted which in turn means that the output was enabled during
-        // initialization
         set_pwm(TURBO_PWM);
+        enable_output();
         break;
 
       case kFixed:
+        set_level(output);
         break;
 
 #ifdef BATTCHECK
       case kBattcheck:
-        disable_output();
-
+        {
         const uint8_t voltage = battery_voltage();
 
         uint8_t i = sizeof(voltage_table) - 1;
@@ -536,6 +533,7 @@ int main(void) {
         blink(i+1, FLASH_TIME);
         delay_s();
         break;
+        }
 #endif  // ifdef BATTCHECK
 
 #ifdef BEACON
@@ -558,7 +556,6 @@ int main(void) {
 #endif  // ifdef STROBE
 
       case kConfig:
-        disable_output();
         set_pwm(FLASH_PWM);
         delay_s();
 
@@ -573,8 +570,6 @@ int main(void) {
         toggle_option(options.raw ^ 0b00000010, flashes++);  // Mode memory
         toggle_option(options.raw ^ 0b00000100, flashes++);  // Freeze on high
         toggle_option(options.raw ^ 0b00001000, flashes++);  // Start with high
-
-        set_level(output);  // Restore previous level
 
         break;
     }
