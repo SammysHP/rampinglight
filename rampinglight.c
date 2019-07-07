@@ -290,23 +290,6 @@ void restore_state(void) {
   }
 }
 
-/**
- * User interface to toggle an option.
- *
- * @param new_opts New options
- * @param flashes  Number of flashes
- */
-void toggle_option(const uint8_t new_opts, const uint8_t flashes) {
-  blink(flashes, FLASH_TIME);
-  const uint8_t old_options = options.raw;
-  options.raw = new_opts;
-  save_options();
-  blink(24, FLICKER_TIME);
-  options.raw = old_options;
-  save_options();
-  delay_s();
-}
-
 #if defined(LOW_VOLTAGE_PROTECTION) || defined(BATTCHECK)
 /**
  * Measure battery voltage.
@@ -554,19 +537,22 @@ int main(void) {
       case kConfig:
         set_pwm(FLASH_PWM);
         delay_s();
-
         state = kDefault;  // Exit config mode after one iteration
 
-        // This assumes that the bit field starts at the least significant bit
-        uint8_t flashes = 1;  // Removed by compile time calculation
-#ifdef STROBE
-        toggle_option(options.raw ^ 0b00010000, flashes++);  // Start with strobe
-#endif  // ifdef STROBE
-        toggle_option(options.raw ^ 0b00000001, flashes++);  // Fixed mode
-        toggle_option(options.raw ^ 0b00000010, flashes++);  // Mode memory
-        toggle_option(options.raw ^ 0b00000100, flashes++);  // Freeze on high
-        toggle_option(options.raw ^ 0b00001000, flashes++);  // Start with high
-        toggle_option(options.raw ^ 0b00100000, flashes++);  // Stealth beacon
+        // Toggle each bit of the options byte. If the user interrupts this
+        // process by turning the light off the saved value with the toggled
+        // bit is not restored to the original value, thus the option is
+        // changed.
+        for (int i = 0; i < 8; ++i) {
+          const uint8_t old_options = options.raw;
+          blink(i+1, FLASH_TIME);
+          options.raw = options.raw ^ (1 << i);
+          save_options();
+          blink(24, FLICKER_TIME);
+          options.raw = old_options;
+          save_options();
+          delay_s();
+        }
 
         break;
     }
