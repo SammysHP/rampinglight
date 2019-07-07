@@ -257,7 +257,8 @@ void save_options(void) {
 }
 
 /**
- * Write current output level to EEPROM with wear leveling.
+ * Write current output level to EEPROM with wear leveling. This will only
+ * perform an action if mode memory is enabled.
  */
 void save_output(void) {
   if (!options.mode_memory) return;
@@ -276,7 +277,8 @@ void save_output(void) {
 }
 
 /**
- * Restore state from EEPROM.
+ * Restore state from EEPROM. If mode memory is enabled, only options will be
+ * restored.
  */
 void restore_state(void) {
   options.raw = ~eeprom_read_byte((uint8_t *)EEPROM_OPTIONS);
@@ -353,8 +355,9 @@ ISR(TIM0_OVF_vect) {
 int main(void) {
   microticks = 0;
   ticks = 0;
+
 #ifdef LOW_VOLTAGE_PROTECTION
-  run_lvp_check = 0;
+  run_lvp_check = 0;  // Latched flag to run LVP check on next cycle
 #endif  // ifdef LOW_VOLTAGE_PROTECTION
 
   // Fast PWM, system clock with /8 prescaler
@@ -436,7 +439,7 @@ int main(void) {
 #endif  // ifdef BEACON
 
       case CONFIG_PRESSES:
-        --fast_presses;
+        --fast_presses;  // Limit fast_presses to CONFIG_PRESSES
         state = kConfig;
         break;
 
