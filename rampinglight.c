@@ -96,11 +96,12 @@ enum State {
 typedef union {
   uint8_t raw;
   struct {
+    unsigned strobe : 1;
+    unsigned moonlight : 1;
     unsigned fixed_mode : 1;
     unsigned mode_memory : 1;
     unsigned freeze_on_high : 1;
     unsigned start_high : 1;
-    unsigned strobe : 1;
     unsigned stealth_beacon : 1;
   };
 } Options;
@@ -376,7 +377,7 @@ int main(void) {
 
   if (coldboot) {  // Initialize state after the flashlight was switched off for some time
 #ifdef STROBE
-    state = options.strobe ? kStrobe : kDefault;
+    state = (options.strobe || options.moonlight) ? kStrobe : kDefault;
 #else
     state = kDefault;
 #endif  // ifdef STROBE
@@ -528,9 +529,14 @@ int main(void) {
 
 #ifdef STROBE
       case kStrobe:
-        set_pwm(TURBO_PWM);
-        blink(4,2);
-        blink(4,3);
+        if (options.strobe) {
+          set_pwm(TURBO_PWM);
+          blink(4,2);
+          blink(4,3);
+        } else {
+          set_pwm(1);
+          enable_output();
+        }
         break;
 #endif  // ifdef STROBE
 
