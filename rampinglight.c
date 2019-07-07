@@ -32,7 +32,7 @@
 
 #define FLASH_TIME 20
 #define FLICKER_TIME 2
-#define FLASH_PWM 40
+#define FLASH_PWM 5
 
 #define BAT_LOW  134  // ~3.2 V
 #define BAT_CRIT 111  // ~2.7 V
