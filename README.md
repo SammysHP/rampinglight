@@ -54,7 +54,7 @@ Turn the light on, it starts with a fixed output level. Tap the button to switch
 
 ### Battery check
 
-Tap five times to enter battery check mode. The flashlight starts blinking one to four times. The number of flashes corresponds to the remaining capacity / current voltage:
+Tap six times to enter battery check mode. The flashlight starts blinking one to four times. The number of flashes corresponds to the remaining capacity / current voltage:
 
 - 4 flashes: above 4.0 V (75%)
 - 3 flashes: above 3.8 V (50%)
@@ -66,7 +66,7 @@ Tap again to return to normal flashlight mode.
 
 ### Beacon mode
 
-Tap six times to enter beacon mode. In this mode the flashlights runs at low intensity and flashes every two seconds. Tap again to return to normal flashlight mode.
+Tap five times to enter beacon mode. In this mode the flashlights runs at low intensity and flashes every two seconds. Tap again to return to normal flashlight mode.
 
 
 ### Strobe mode
