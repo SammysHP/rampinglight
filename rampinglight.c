@@ -112,19 +112,19 @@ const uint8_t __flash voltage_table[] = { 0, BAT_25P, BAT_50P, BAT_75P };
 
 // Variables that are not initialized and survive a restart for a short time
 uint8_t cold_boot_detect[CBD_BYTES] __attribute__((section(".noinit")));
-register enum State state asm("r2");
-register uint8_t output asm("r3");
-register uint8_t fast_presses asm("r4");
-register uint8_t ramping_up asm("r5");
+register enum State state           asm("r2");
+register uint8_t output             asm("r3");
+register uint8_t fast_presses       asm("r4");
+register uint8_t ramping_up         asm("r5");
 
 // Variables that will be initialized on start
-register Options options asm("r6");
-register uint8_t output_eeprom asm("r7");
-register uint8_t output_eeprom_pos asm("r8");
-register uint8_t microticks asm("r9");
-register uint8_t ticks asm("r10");
+register Options options            asm("r6");
+register uint8_t output_eeprom      asm("r7");
+register uint8_t output_eeprom_pos  asm("r8");
+register uint8_t microticks         asm("r9");
+register uint8_t ticks              asm("r10");
 #ifdef LOW_VOLTAGE_PROTECTION
-register uint8_t run_lvp_check asm("r11");
+register uint8_t run_lvp_check      asm("r11");
 #endif  // ifdef LOW_VOLTAGE_PROTECTION
 
 /**
