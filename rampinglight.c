@@ -34,11 +34,11 @@
 #define FLICKER_TIME 2
 #define FLASH_PWM 5
 
-#define BAT_LOW  134  // ~3.2 V
-#define BAT_CRIT 111  // ~2.7 V
-#define BAT_75P  171  // ~4.0 V
-#define BAT_50P  161  // ~3.8 V
-#define BAT_25P  147  // ~3.5 V
+#define BAT_LOW  136  // ~3.2 V
+#define BAT_CRIT 115  // ~2.7 V
+#define BAT_75P  174  // ~4.0 V
+#define BAT_50P  165  // ~3.8 V
+#define BAT_25P  151  // ~3.5 V
 
 #define RAMP_TIME 3
 #define RAMP_SIZE sizeof(ramp_values)
