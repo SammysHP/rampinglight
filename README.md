@@ -14,6 +14,7 @@ This firmware is compatible with the driver commonly found in Convoy flashlights
 - Start at high: after the flashlight was off, start with the highest output (and go from high to low)
 - Beacon mode: low background light with regular flashes
 - Tactical strobe: if enabled, always start with fast strobe mode
+- Moonlight mode: if enabled, always start with moonlight mode
 - Runtime configuration: options can be toggled via configuration menu
 
 
@@ -25,13 +26,15 @@ This firmware is compatible with the driver commonly found in Convoy flashlights
 1. Shortly tap the switch 10+ times, the light will turn off
 1. The light starts counting via flashes, each group followed by a short burst of flashes. Turn off the light during the burst to toggle the option. Options are:
     1. Start with strobe
+    1. Start with moonlight
     1. Ramping or fixed levels
     1. Mode memory on or off
     1. Freeze on high
     1. Start on high
     1. Stealth beacon mode
+    1. Slow beacon mode
 
-The default is: no strobe, ramping UI, no mode memory, do not freeze on high, start on low, no stealth beacon
+The default is: no strobe, no moonlight, ramping UI, no mode memory, do not freeze on high, start on low, no stealth beacon, no slow beacon
 
 
 ### Ramping UI
@@ -39,6 +42,10 @@ The default is: no strobe, ramping UI, no mode memory, do not freeze on high, st
 Turn the light on and it will start ramping up and down. Short tap the switch to freeze the current brightness. Tap again to resume ramping.
 
 Tap two times to go into turbo mode. There is no timer, so make sure to monitor the temperature. Tap again to go back to ramping.
+
+If "start on high" is enabled, the light starts with the highest level and ramps down.
+
+Enable "freeze on high" to stop ramping when reaching the highest level.
 
 
 ### Fixed level UI
@@ -50,7 +57,7 @@ There are four brightness levels in the fixed mode:
 1. High
 1. Turbo
 
-Turn the light on, it starts with a fixed output level. Tap the button to switch to next mode. After the highest mode it will start with the lowest mode again.
+Turn the light on, it starts with a fixed output level. Tap the button to switch to next level. After the highest level it will start with the lowest level again. If "start on high" is enabled, the light starts with the highest level and the order of levels is reversed.
 
 
 ### Battery check
@@ -67,7 +74,9 @@ Tap again to return to normal flashlight mode.
 
 ### Beacon mode
 
-Tap five times to enter beacon mode. In this mode the flashlights runs at low intensity and flashes every two seconds. Tap again to return to normal flashlight mode.
+Tap five times to enter beacon mode. In this mode the flashlights runs at low intensity and flashes every second. Tap again to return to normal flashlight mode.
+
+There are two options to change this behavior: Stealth beacon which turns off the light completely inbetween the flashes and slow mode that flashes only every two seconds.
 
 
 ### Strobe mode
@@ -75,6 +84,15 @@ Tap five times to enter beacon mode. In this mode the flashlights runs at low in
 If users want a strobe mode, they usually want it for defence purposes. Thus it should be possible to enter it as fast as possible.
 
 If strobe is enabled in the preferences, the flashlight always starts in a fast strobe mode. Then a single press of the power switch enters normal flashlight mode.
+
+
+### Moonlight mode
+
+It is the same as with the strobe mode: If users want a moonlight mode, they usually want it as the first mode.
+
+If moonlight is enabled in the preferences, the flashlight always starts with a moonlight level. Then a single press of the power switch enters normal flashlight mode.
+
+It should be obvious that strobe and moonlight modes are mutually exclusive. The strobe mode takes precedence if both options are enabled.
 
 
 ### Low voltage protection
