@@ -18,7 +18,7 @@
 // Optional features
 #define BATTCHECK
 #define BEACON
-#define STROBE
+#define OVERTURE
 #define LOW_VOLTAGE_PROTECTION
 
 #include <avr/io.h>
@@ -85,9 +85,9 @@ enum State {
 #ifdef BEACON
   kBeacon,
 #endif  // ifdef BEACON
-#ifdef STROBE
-  kStrobe,
-#endif  // ifdef STROBE
+#ifdef OVERTURE
+  kOverture,
+#endif  // ifdef OVERTURE
 };
 
 /**
@@ -376,11 +376,11 @@ int main(void) {
   }
 
   if (coldboot) {  // Initialize state after the flashlight was switched off for some time
-#ifdef STROBE
-    state = (options.strobe || options.moonlight) ? kStrobe : kDefault;
+#ifdef OVERTURE
+    state = (options.strobe || options.moonlight) ? kOverture : kDefault;
 #else
     state = kDefault;
-#endif  // ifdef STROBE
+#endif  // ifdef OVERTURE
     fast_presses = 0;
     ramping_up = 1;
 
@@ -527,18 +527,18 @@ int main(void) {
         break;
 #endif  // ifdef BEACON
 
-#ifdef STROBE
-      case kStrobe:
+#ifdef OVERTURE
+      case kOverture:
         if (options.strobe) {
           set_pwm(TURBO_PWM);
           blink(4,2);
           blink(4,3);
-        } else {
+        } else {  // Only possibility if we have entered this state
           set_pwm(1);
           enable_output();
         }
         break;
-#endif  // ifdef STROBE
+#endif  // ifdef OVERTURE
 
       case kConfig:
         set_pwm(FLASH_PWM);
