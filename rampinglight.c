@@ -103,6 +103,7 @@ typedef union {
     unsigned freeze_on_high : 1;
     unsigned start_high : 1;
     unsigned stealth_beacon : 1;
+    unsigned slow_beacon : 1;
   };
 } Options;
 
@@ -523,7 +524,9 @@ int main(void) {
           enable_output();
         }
         delay_s();
-        delay_s();
+        if (options.slow_beacon) {
+          delay_s();
+        }
         break;
 #endif  // ifdef BEACON
 
