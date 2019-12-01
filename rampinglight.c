@@ -123,14 +123,13 @@ register uint8_t ramping_up         asm("r5");
 register Options options            asm("r6");
 register uint8_t output_eeprom      asm("r7");
 register uint8_t output_eeprom_pos  asm("r8");
-register uint8_t microticks         asm("r9");
-register uint8_t ticks              asm("r10");
+register uint8_t ticks              asm("r9");
 #ifdef LOW_VOLTAGE_PROTECTION
-register uint8_t run_lvp_check      asm("r11");
+register uint8_t run_lvp_check      asm("r10");
 #endif  // ifdef LOW_VOLTAGE_PROTECTION
 
 /**
- * Busy wait delay with 10 ms resolution. This function allows to choose the
+ * Delay with 10 ms resolution. This function allows to choose the
  * duration during runtime.
  *
  * @param duration Wait duration in n*10 ms.
@@ -142,11 +141,15 @@ void delay_10ms(uint8_t duration) {
 }
 
 /**
- * Busy wait one second. Saves some space because call does not require setup
- * of arguments.
+ * Delay one second. Saves some space because call does not require setup of
+ * arguments.
  */
 void delay_s(void) {
-  delay_10ms(100);
+  const uint8_t time = ticks + 4;  // now + 1s
+  while (time - ticks) {
+    // TODO Sleep to save power
+    __asm__ ("nop");
+  }
 }
 
 /**
@@ -306,33 +309,28 @@ static uint8_t battery_voltage(void) {
 #endif  // if defined(LOW_VOLTAGE_PROTECTION) || defined(BATTCHECK)
 
 /**
- * Timer0 overflow interrupt handler.
- * Frequency will be F_CPU/(8*256) = 2343.75 Hz.
- *
- * One microtick: ~0.427 ms
- * One tick (256 microticks): ~0.109227 s
+ * Watchdog interrupt handler used for timekeeping.
+ * Frequency will be ~4 Hz.
+ * One tick: ~0.25 s
  */
-ISR(TIM0_OVF_vect) {
-  if (!--microticks) {
-    ++ticks;
+ISR(WDT_vect) {
+  ++ticks;
 
-    if (ticks == 4) {  // ~440 ms
-      fast_presses = 0;
-    }
+  if (ticks == 2) {  // ~0.5 s
+    fast_presses = 0;
+  }
 
 #ifdef LOW_VOLTAGE_PROTECTION
-    if ((ticks & 0x7F) == 14) {  // Every ~14 s starting after ~1.5 s
-      run_lvp_check = 1;
-    }
-#endif  // ifdef LOW_VOLTAGE_PROTECTION
+  if ((ticks & 0b00111111) == 4) {  // Every ~24s starting after ~1s
+    run_lvp_check = 1;
   }
+#endif  // ifdef LOW_VOLTAGE_PROTECTION
 }
 
 /**
  * Entry point.
  */
 int main(void) {
-  microticks = 0;
   ticks = 0;
 
 #ifdef LOW_VOLTAGE_PROTECTION
@@ -345,8 +343,8 @@ int main(void) {
   TCCR0A = (1 << WGM01) | (1 << WGM00);
   TCCR0B = (1 << CS01);
 
-  // Enable timer overflow interrupt
-  TIMSK0 = (1 << TOIE0);
+  // Enable watchdog interrupt
+  WDTCR = (1 << WDTIE) | (1 << WDP2);
 
   // Set PWM pin to output
   DDRB |= (1 << PWM_PIN);
@@ -487,15 +485,18 @@ int main(void) {
 
       case kFrozen:
         set_level(output);
+        delay_s();
         break;
 
       case kTurbo:
         set_pwm(TURBO_PWM);
         enable_output();
+        delay_s();
         break;
 
       case kFixed:
         set_level(output);
+        delay_s();
         break;
 
 #ifdef BATTCHECK
