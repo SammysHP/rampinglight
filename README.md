@@ -14,7 +14,6 @@ This firmware is compatible with the driver commonly found in Convoy flashlights
 - Start at high: after the flashlight was off, start with the highest output (and go from high to low)
 - Beacon mode: low background light with regular flashes
 - Tactical strobe: if enabled, always start with fast strobe mode
-- Moonlight mode: if enabled, always start with moonlight mode
 - Runtime configuration: options can be toggled via configuration menu
 
 
@@ -26,7 +25,6 @@ This firmware is compatible with the driver commonly found in Convoy flashlights
 1. Shortly tap the switch 10+ times, the light will turn off
 1. The light starts counting via flashes, each group followed by a short burst of flashes. Turn off the light during the burst to toggle the option. Options are:
     1. Start with strobe
-    1. Start with moonlight
     1. Ramping or fixed levels
     1. Mode memory on or off
     1. Freeze on high
@@ -34,7 +32,7 @@ This firmware is compatible with the driver commonly found in Convoy flashlights
     1. Stealth beacon mode
     1. Slow beacon mode
 
-The default is: no strobe, no moonlight, ramping UI, no mode memory, do not freeze on high, start on low, no stealth beacon, no slow beacon
+The default is: no strobe, ramping UI, no mode memory, do not freeze on high, start on low, no stealth beacon, no slow beacon
 
 
 ### Ramping UI
@@ -84,15 +82,6 @@ There are two options to change this behavior: Stealth beacon which turns off th
 If users want a strobe mode, they usually want it for defence purposes. Thus it should be possible to enter it as fast as possible.
 
 If strobe is enabled in the preferences, the flashlight always starts in a fast strobe mode. Then a single press of the power switch enters normal flashlight mode.
-
-
-### Moonlight mode
-
-It is the same as with the strobe mode: If users want a moonlight mode, they usually want it as the first mode.
-
-If moonlight is enabled in the preferences, the flashlight always starts with a moonlight level. Then a single press of the power switch enters normal flashlight mode.
-
-It should be obvious that strobe and moonlight modes are mutually exclusive. The strobe mode takes precedence if both options are enabled.
 
 
 ### Low voltage protection

@@ -97,13 +97,13 @@ typedef union {
   uint8_t raw;
   struct {
     unsigned strobe : 1;
-    unsigned moonlight : 1;
     unsigned fixed_mode : 1;
     unsigned mode_memory : 1;
     unsigned freeze_on_high : 1;
     unsigned start_high : 1;
     unsigned stealth_beacon : 1;
     unsigned slow_beacon : 1;
+    unsigned unused : 1;
   };
 } Options;
 
@@ -376,7 +376,7 @@ int main(void) {
 
   if (coldboot) {  // Initialize state after the flashlight was switched off for some time
 #ifdef OVERTURE
-    state = (options.strobe || options.moonlight) ? kOverture : kDefault;
+    state = options.strobe ? kOverture : kDefault;
 #else
     state = kDefault;
 #endif  // ifdef OVERTURE
@@ -533,14 +533,9 @@ int main(void) {
 
 #ifdef OVERTURE
       case kOverture:
-        if (options.strobe) {
-          set_pwm(TURBO_PWM);
-          blink(4,2);
-          blink(4,3);
-        } else {  // Only possibility if we have entered this state
-          set_pwm(1);
-          enable_output();
-        }
+        set_pwm(TURBO_PWM);
+        blink(4,2);
+        blink(4,3);
         break;
 #endif  // ifdef OVERTURE
 
