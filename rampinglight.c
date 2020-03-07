@@ -337,11 +337,14 @@ int main(void) {
   run_lvp_check = 0;  // Latched flag to run LVP check on next cycle
 #endif  // ifdef LOW_VOLTAGE_PROTECTION
 
-  // Fast PWM, system clock with /8 prescaler
-  // Frequency will be F_CPU/(8*256) = 2343.75 Hz
+  // Fast PWM, system clock with /1 prescaler
+  // Frequency will be F_CPU/(1*256) = 4687.5 Hz
   // COM0B1 will be set via enable_output()
   TCCR0A = (1 << WGM01) | (1 << WGM00);
-  TCCR0B = (1 << CS01);
+  TCCR0B = (1 << CS00);
+
+  CLKPR = (1 << CLKPCE);
+  CLKPR = (1 << CLKPS1);
 
   // Enable watchdog interrupt
   WDTCR = (1 << WDTIE) | (1 << WDP2);
