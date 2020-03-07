@@ -471,16 +471,16 @@ int main(void) {
         output += ramping_up ? 1 : -1;
         set_level(output);
 
-        if (output == RAMP_SIZE - 1) {
-          if (options.freeze_on_high) {
-            state = kFrozen;
-            break;
-          }
-          delay_s();
-        } else {
-          delay_10ms(RAMP_TIME*100/RAMP_SIZE);
+        if (output == RAMP_SIZE - 1 && options.freeze_on_high) {
+          state = kFrozen;
+          break;
+        } else if (output == RAMP_SIZE - 1 || output == 0) {
+          blink(2, FLICKER_TIME);
+          enable_output();
+          delay_10ms(50);
         }
 
+        delay_10ms(RAMP_TIME*100/RAMP_SIZE);
         break;
 
       case kFrozen:
