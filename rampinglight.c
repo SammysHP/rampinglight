@@ -46,8 +46,8 @@
 #define TURBO_PWM 255
 #define BEACON_PWM 5
 
-#define FIXED_SIZE sizeof(fixed_values)
-#define FIXED_VALUES 1,35,118,255
+#define FIXED_VALUES_MAP 0,21,42,63  // Index in ramp_values
+#define FIXED_STEPS sizeof(fixed_values_map)
 
 #define CBD_BYTES 8
 #define CBD_PATTERN 0xAA
@@ -109,7 +109,7 @@ typedef union {
 
 // Lookup tables in flash
 const uint8_t __flash ramp_values[] = { RAMP_VALUES };
-const uint8_t __flash fixed_values[] = { FIXED_VALUES };
+const uint8_t __flash fixed_values_map[] = { FIXED_VALUES_MAP };
 const uint8_t __flash voltage_table[] = { 0, BAT_25P, BAT_50P, BAT_75P };
 
 // Variables that are not initialized and survive a restart for a short time
@@ -117,7 +117,7 @@ uint8_t cold_boot_detect[CBD_BYTES] __attribute__((section(".noinit")));
 register enum State state           asm("r2");
 register uint8_t output             asm("r3");
 register uint8_t fast_presses       asm("r4");
-register uint8_t ramping_up         asm("r5");
+register int8_t ramp_direction      asm("r5");
 
 // Variables that will be initialized on start
 register Options options            asm("r6");
@@ -178,14 +178,11 @@ static void set_pwm(const uint8_t pwm) {
 /**
  * Set output to a level as defined in the ramp table.
  *
- * @param level Index in ramp_values or fixed_values depending on fixed_mode
+ * @param level Index in ramp_values or fixed_values_map depending on fixed_mode
  */
 void set_level(const uint8_t level) {
-  if (options.fixed_mode) {
-    set_pwm(fixed_values[options.start_high ? FIXED_SIZE - level - 1 : level]);
-  } else {
-    set_pwm(ramp_values[level]);
-  }
+  const uint8_t lvl = options.fixed_mode ? fixed_values_map[level] : level;
+  set_pwm(ramp_values[options.start_high ? RAMP_SIZE - lvl - 1 : lvl]);
   enable_output();
 }
 
@@ -381,16 +378,12 @@ int main(void) {
     state = kDefault;
 #endif  // ifdef OVERTURE
     fast_presses = 0;
-    ramping_up = 1;
+    ramp_direction = -1;
 
     if (options.mode_memory && output_eeprom != 0xFF) {
       output = output_eeprom;
     } else {
-      if (!options.fixed_mode && options.start_high) {
-        output = RAMP_SIZE - 1;
-      } else {
-        output = 0;
-      }
+      output = 0;
     }
   } else {  // User has tapped the power button
     delay_10ms(4);  // Simple button debounce
@@ -435,7 +428,7 @@ int main(void) {
             break;
 
           case kFixed:
-            output = (output + 1) % FIXED_SIZE;
+            output = (output + 1) % FIXED_STEPS;
             save_output();
             break;
 
@@ -464,11 +457,13 @@ int main(void) {
         continue;  // Skip main loop cycle and continue with correct mode
 
       case kRamping:
-        ramping_up =
-            (ramping_up && output < RAMP_SIZE - 1) ||
-            (!ramping_up && output == 0);
+        if (output == RAMP_SIZE - 1) {
+          ramp_direction = -1;
+        } else if (output == 0) {
+          ramp_direction = 1;
+        }
 
-        output += ramping_up ? 1 : -1;
+        output += ramp_direction;
         set_level(output);
 
         if (output == RAMP_SIZE - 1 || output == 0) {
@@ -488,6 +483,7 @@ int main(void) {
       case kFrozen:
         set_level(output);
         delay_s();
+        ramp_direction = -1;
         break;
 
       case kTurbo:

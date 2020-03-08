@@ -37,7 +37,9 @@ The default is: no strobe, ramping UI, no mode memory, do not freeze on ramp end
 
 ### Ramping UI
 
-Turn the light on and it will start ramping up and down. Short tap the switch to freeze the current brightness. Tap again to resume ramping.
+Turn the light on and it will start ramping up and down. Short tap the switch to freeze the current brightness. Tap again to resume ramping. The direction of ramping will be reset after one second in fixed state.
+
+The default is to ramp down from the current level, except if set to "start on high". Or in other words: It will ramp into the direction of the initial brightness. This also means that it will ramp up if "start on high" is not set because it is already at the floor (and vice versa if "start on high" is set).
 
 Tap three times to go into turbo mode. There is no timer, so make sure to monitor the temperature. Tap again to go back to ramping.
 
