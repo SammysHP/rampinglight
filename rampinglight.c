@@ -500,7 +500,6 @@ int main(void) {
 #ifdef BATTCHECK
       case kBattcheck:
         {
-        delay_s();
         const uint8_t voltage = battery_voltage();
 
         uint8_t i = sizeof(voltage_table) - 1;
@@ -510,19 +509,20 @@ int main(void) {
 
         set_pwm(FLASH_PWM);
         blink(i+1, FLASH_TIME);
+        delay_s();
         break;
         }
 #endif  // ifdef BATTCHECK
 
 #ifdef BEACON
       case kBeacon:
-        delay_s();
         set_pwm(TURBO_PWM);
         blink(2, 3);
         if (!options.stealth_beacon) {
           set_pwm(BEACON_PWM);
           enable_output();
         }
+        delay_s();
         if (options.slow_beacon) {
           delay_s();
         }
