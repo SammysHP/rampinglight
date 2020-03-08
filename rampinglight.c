@@ -99,7 +99,7 @@ typedef union {
     unsigned strobe : 1;
     unsigned fixed_mode : 1;
     unsigned mode_memory : 1;
-    unsigned freeze_on_high : 1;
+    unsigned freeze_on_end : 1;
     unsigned start_high : 1;
     unsigned stealth_beacon : 1;
     unsigned slow_beacon : 1;
@@ -471,13 +471,15 @@ int main(void) {
         output += ramping_up ? 1 : -1;
         set_level(output);
 
-        if (output == RAMP_SIZE - 1 && options.freeze_on_high) {
-          state = kFrozen;
-          break;
-        } else if (output == RAMP_SIZE - 1 || output == 0) {
+        if (output == RAMP_SIZE - 1 || output == 0) {
           blink(2, FLICKER_TIME);
           enable_output();
           delay_10ms(50);
+
+          if (options.freeze_on_end) {
+            state = kFrozen;
+            break;
+          }
         }
 
         delay_10ms(RAMP_TIME*100/RAMP_SIZE);

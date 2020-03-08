@@ -10,7 +10,7 @@ This firmware is compatible with the driver commonly found in Convoy flashlights
 - Battery check: one to four flashes
 - Low voltage protection: flicker every 15 seconds if the voltage is low and turn off if the voltage is critical
 - Mode memory: start with last frozen ramp value or with last fixed level (off-time memory)
-- Stop at high: in ramping UI, stop if ramping reaches maximum output
+- Stop at ramp end: in ramping UI, stop if ramping reaches minimum or maximum output
 - Start at high: after the flashlight was off, start with the highest output (and go from high to low)
 - Beacon mode: low background light with regular flashes
 - Tactical strobe: if enabled, always start with fast strobe mode
@@ -27,12 +27,12 @@ This firmware is compatible with the driver commonly found in Convoy flashlights
     1. Start with strobe
     1. Ramping or fixed levels
     1. Mode memory on or off
-    1. Freeze on high
+    1. Freeze on ramp end
     1. Start on high
     1. Stealth beacon mode
     1. Slow beacon mode
 
-The default is: no strobe, ramping UI, no mode memory, do not freeze on high, start on low, no stealth beacon, no slow beacon
+The default is: no strobe, ramping UI, no mode memory, do not freeze on ramp end, start on low, no stealth beacon, no slow beacon
 
 
 ### Ramping UI
@@ -43,7 +43,7 @@ Tap two times to go into turbo mode. There is no timer, so make sure to monitor 
 
 If "start on high" is enabled, the light starts with the highest level and ramps down.
 
-Enable "freeze on high" to stop ramping when reaching the highest level.
+Enable "freeze on ramp end" to stop ramping when reaching the lowest or highest level.
 
 
 ### Fixed level UI
