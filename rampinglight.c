@@ -318,7 +318,7 @@ ISR(WDT_vect) {
   }
 
 #ifdef LOW_VOLTAGE_PROTECTION
-  if ((ticks & 0b00111111) == 4) {  // Every ~24s starting after ~1s
+  if ((ticks & 0b00111111) == 4) {  // Every ~16s starting after ~1s
     run_lvp_check = 1;
   }
 #endif  // ifdef LOW_VOLTAGE_PROTECTION
