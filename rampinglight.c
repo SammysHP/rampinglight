@@ -143,6 +143,10 @@ void delay_10ms(uint8_t duration) {
 /**
  * Delay one second. Saves some space because call does not require setup of
  * arguments.
+ *
+ * Because we do not know when exactly we have entered this function in
+ * relation to the ticks counter the actually delay might range from 750 to
+ * 1000 ms.
  */
 void delay_s(void) {
   const uint8_t time = ticks + 4;  // now + 1s
